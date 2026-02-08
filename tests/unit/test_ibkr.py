@@ -206,11 +206,12 @@ class TestGetConid:
 
         await client.get_conid("AAPL")
 
-        # Verify the endpoint included default asset_type=STK
+        # Verify the params included default asset_type=STK
         client.get_request.assert_called_once()
-        call_args = client.get_request.call_args[0][0]
-        assert "assetType=STK" in call_args
-        assert "symbol=AAPL" in call_args
+        call_kwargs = client.get_request.call_args[1]
+        assert "params" in call_kwargs
+        assert call_kwargs["params"]["symbol"] == "AAPL"
+        assert call_kwargs["params"]["assetType"] == "STK"
 
     @pytest.mark.asyncio
     async def test_get_conid_custom_asset_type(self, client: IBKRClient) -> None:
@@ -223,11 +224,12 @@ class TestGetConid:
         conid = await client.get_conid("ES", asset_type="FUT")
 
         assert conid == 999999
-        # Verify the endpoint included custom asset_type
+        # Verify the params included custom asset_type
         client.get_request.assert_called_once()
-        call_args = client.get_request.call_args[0][0]
-        assert "assetType=FUT" in call_args
-        assert "symbol=ES" in call_args
+        call_kwargs = client.get_request.call_args[1]
+        assert "params" in call_kwargs
+        assert call_kwargs["params"]["symbol"] == "ES"
+        assert call_kwargs["params"]["assetType"] == "FUT"
 
     @pytest.mark.asyncio
     async def test_get_conid_different_symbols_different_cache_entries(
@@ -312,6 +314,62 @@ class TestGetSearchResults:
 
         with pytest.raises(SymbolNotFoundError):
             await client.get_search_results("INVALID", "STK", timedelta(hours=24))
+
+    @pytest.mark.asyncio
+    async def test_get_search_results_special_char_dot(self, client: IBKRClient) -> None:
+        """Test that symbols with dots (e.g., BRK.B) are properly URL encoded."""
+        mock_response = [{"conid": 4815747, "symbol": "BRK.B", "description": "Berkshire Hathaway Inc"}]
+        client.get_request = AsyncMock(return_value=mock_response)
+
+        results = await client.get_search_results("BRK.B", "STK", timedelta(hours=24))
+
+        assert results == mock_response
+        # Verify get_request was called with params
+        client.get_request.assert_called_once()
+        call_kwargs = client.get_request.call_args[1]
+        assert "params" in call_kwargs
+        assert call_kwargs["params"]["symbol"] == "BRK.B"
+        assert call_kwargs["params"]["assetType"] == "STK"
+
+    @pytest.mark.asyncio
+    async def test_get_search_results_special_char_ampersand(self, client: IBKRClient) -> None:
+        """Test that symbols with ampersands (e.g., AT&T) are properly URL encoded."""
+        mock_response = [{"conid": 12345, "symbol": "T", "description": "AT&T Inc"}]
+        client.get_request = AsyncMock(return_value=mock_response)
+
+        results = await client.get_search_results("AT&T", "STK", timedelta(hours=24))
+
+        assert results == mock_response
+        # Verify params are passed correctly (httpx will URL-encode the ampersand)
+        client.get_request.assert_called_once()
+        call_kwargs = client.get_request.call_args[1]
+        assert call_kwargs["params"]["symbol"] == "AT&T"
+
+    @pytest.mark.asyncio
+    async def test_get_search_results_special_char_space(self, client: IBKRClient) -> None:
+        """Test that symbols with spaces are properly URL encoded."""
+        mock_response = [{"conid": 99999, "symbol": "TEST SYMBOL"}]
+        client.get_request = AsyncMock(return_value=mock_response)
+
+        results = await client.get_search_results("TEST SYMBOL", "STK", timedelta(hours=24))
+
+        assert results == mock_response
+        client.get_request.assert_called_once()
+        call_kwargs = client.get_request.call_args[1]
+        assert call_kwargs["params"]["symbol"] == "TEST SYMBOL"
+
+    @pytest.mark.asyncio
+    async def test_get_search_results_special_char_slash(self, client: IBKRClient) -> None:
+        """Test that symbols with slashes are properly URL encoded."""
+        mock_response = [{"conid": 88888, "symbol": "BRK/B"}]
+        client.get_request = AsyncMock(return_value=mock_response)
+
+        results = await client.get_search_results("BRK/B", "STK", timedelta(hours=24))
+
+        assert results == mock_response
+        client.get_request.assert_called_once()
+        call_kwargs = client.get_request.call_args[1]
+        assert call_kwargs["params"]["symbol"] == "BRK/B"
 
 
 class TestGetStock:

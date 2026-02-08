@@ -110,13 +110,18 @@ class IBKRClient:
             asset_type: str | None=None,
             ttl: timedelta | None=None
     ) -> list[dict[str, Any]]:
-        endpoint = f"iserver/secdef/search?symbol={symbol}"
+        params = {"symbol": symbol}
         if asset_type is not None:
-            endpoint += f"&assetType={asset_type}"
-        response = self._cache.get(endpoint)
+            params["assetType"] = asset_type
+
+        # Create normalized cache key using httpx.QueryParams
+        endpoint = "iserver/secdef/search"
+        cache_key = f"{endpoint}?{httpx.QueryParams(params)}"
+
+        response = self._cache.get(cache_key)
         if response is None:
-            response = await self.get_request(endpoint)
-            self._cache.set(endpoint, response, ttl)
+            response = await self.get_request(endpoint, params=params)
+            self._cache.set(cache_key, response, ttl)
         if not isinstance(response, list) or not response:
             raise SymbolNotFoundError(symbol)
         return response
