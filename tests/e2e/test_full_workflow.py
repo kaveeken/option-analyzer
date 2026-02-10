@@ -4,7 +4,7 @@ E2E test for complete application workflow.
 Tests the full user journey from entering a symbol to analyzing a strategy.
 
 Prerequisites:
-    - Server must be running at localhost:8000
+    - Server must be running at localhost:8080
     - Server should be configured to use FakeIBKRClient (via dependency override in conftest)
 
 Run tests with:

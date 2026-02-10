@@ -49,7 +49,7 @@ async def page(browser) -> AsyncGenerator[Page, None]:
 @pytest.fixture
 def base_url() -> str:
     """Base URL for the test server."""
-    return "http://localhost:8000"
+    return "http://localhost:8080"
 
 
 @pytest.fixture
