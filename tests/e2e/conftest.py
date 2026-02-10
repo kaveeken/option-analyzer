@@ -30,8 +30,8 @@ from tests.fixtures.fake_ibkr import FakeIBKRClient
 async def browser():
     """Create a browser instance for each test."""
     async with async_playwright() as p:
-        # Set headless=False to see the browser during tests
-        browser = await p.chromium.launch(headless=False, slow_mo=500)
+        # Use headless=True for CI/CD, set to False with slow_mo=500 for debugging
+        browser = await p.chromium.launch(headless=True)
         yield browser
         await browser.close()
 
