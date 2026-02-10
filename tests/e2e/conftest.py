@@ -187,14 +187,14 @@ async def setup_strategy_with_positions(page: Page, setup_strategy):
         # Add positions if specified
         if positions:
             for conid, quantity in positions:
+                # Handle the prompt BEFORE clicking (use once() for one-time handler)
+                page.once("dialog", lambda dialog, q=quantity: dialog.accept(str(q)))
+
                 # Find and click the Add button for this conid
                 await page.click(f'button[data-conid="{conid}"]')
 
-                # Handle the prompt
-                page.on("dialog", lambda dialog: dialog.accept(str(quantity)))
-
                 # Wait for position to appear in table
-                await page.wait_for_timeout(500)
+                await page.wait_for_timeout(1000)
 
         # Set stock quantity if specified
         if stock_quantity != 0:
