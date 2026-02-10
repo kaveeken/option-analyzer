@@ -3,15 +3,21 @@ E2E test configuration with Playwright fixtures and mock IBKR client.
 """
 
 import asyncio
+import multiprocessing
+import time
 from datetime import date, timedelta
 from typing import AsyncGenerator, Generator
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import uvicorn
 from playwright.async_api import Page, async_playwright
 
+from option_analyzer.api.app import create_app
+from option_analyzer.api.dependencies import get_ibkr_client, get_plot_executor_dep, get_session_service_dep
 from option_analyzer.clients.ibkr import IBKRClient
 from option_analyzer.models.domain import OptionChain, OptionContract, Stock
+from option_analyzer.services.session import SessionService
 from tests.fixtures.ibkr_responses import (
     make_stock,
     make_option_chain,
@@ -24,13 +30,14 @@ from tests.fixtures.fake_ibkr import FakeIBKRClient
 async def browser():
     """Create a browser instance for each test."""
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        # Set headless=False to see the browser during tests
+        browser = await p.chromium.launch(headless=False, slow_mo=500)
         yield browser
         await browser.close()
 
 
 @pytest.fixture
-async def page(browser) -> AsyncGenerator[Page, None]:
+async def page(browser, test_server) -> AsyncGenerator[Page, None]:
     """Create a new page for each test."""
     context = await browser.new_context()
     page = await context.new_page()
@@ -44,7 +51,7 @@ def base_url() -> str:
     return "http://localhost:8080"
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def mock_ibkr_client() -> FakeIBKRClient:
     """
     Create a fake IBKR client with standard responses.
@@ -77,6 +84,50 @@ def mock_ibkr_client() -> FakeIBKRClient:
     client.add_historical(265598, make_historical_data(seed=42))
 
     return client
+
+
+@pytest.fixture(scope="session")
+def test_server(mock_ibkr_client):
+    """
+    Start a test server with mocked IBKR client.
+
+    The server runs in a background process for the test session.
+    """
+    def run_server():
+        """Run the server with dependency overrides."""
+        app = create_app()
+
+        # Override dependencies to use fake client
+        app.dependency_overrides[get_ibkr_client] = lambda: mock_ibkr_client
+        app.dependency_overrides[get_session_service_dep] = lambda: SessionService(ttl_seconds=3600)
+
+        # Run the server
+        uvicorn.run(app, host="127.0.0.1", port=8080, log_level="error")
+
+    # Start server in background process
+    process = multiprocessing.Process(target=run_server, daemon=True)
+    process.start()
+
+    # Wait for server to be ready
+    max_retries = 30
+    for i in range(max_retries):
+        try:
+            import urllib.request
+            urllib.request.urlopen("http://localhost:8080/health", timeout=1)
+            break
+        except Exception:
+            if i == max_retries - 1:
+                process.terminate()
+                raise RuntimeError("Test server failed to start")
+            time.sleep(0.5)
+
+    yield
+
+    # Cleanup
+    process.terminate()
+    process.join(timeout=5)
+    if process.is_alive():
+        process.kill()
 
 
 @pytest.fixture
