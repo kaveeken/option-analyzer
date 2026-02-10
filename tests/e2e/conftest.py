@@ -3,7 +3,7 @@ E2E test configuration with Playwright fixtures and mock IBKR client.
 """
 
 import asyncio
-import multiprocessing
+import threading
 import time
 from datetime import date, timedelta
 from typing import AsyncGenerator, Generator
@@ -91,22 +91,33 @@ def test_server(mock_ibkr_client):
     """
     Start a test server with mocked IBKR client.
 
-    The server runs in a background process for the test session.
+    The server runs in a background thread for the test session.
     """
+    # Create app with dependency overrides
+    app = create_app()
+
+    # Create a SINGLE session service instance to be reused across requests
+    session_service = SessionService(ttl_seconds=3600)
+
+    app.dependency_overrides[get_ibkr_client] = lambda: mock_ibkr_client
+    app.dependency_overrides[get_session_service_dep] = lambda: session_service
+
+    # Configure and start uvicorn server in background thread
+    config = uvicorn.Config(
+        app,
+        host="127.0.0.1",
+        port=8080,
+        log_level="error",
+        loop="asyncio"
+    )
+    server = uvicorn.Server(config)
+
     def run_server():
-        """Run the server with dependency overrides."""
-        app = create_app()
+        """Run the server in the thread."""
+        server.run()
 
-        # Override dependencies to use fake client
-        app.dependency_overrides[get_ibkr_client] = lambda: mock_ibkr_client
-        app.dependency_overrides[get_session_service_dep] = lambda: SessionService(ttl_seconds=3600)
-
-        # Run the server
-        uvicorn.run(app, host="127.0.0.1", port=8080, log_level="error")
-
-    # Start server in background process
-    process = multiprocessing.Process(target=run_server, daemon=True)
-    process.start()
+    thread = threading.Thread(target=run_server, daemon=True)
+    thread.start()
 
     # Wait for server to be ready
     max_retries = 30
@@ -117,17 +128,14 @@ def test_server(mock_ibkr_client):
             break
         except Exception:
             if i == max_retries - 1:
-                process.terminate()
                 raise RuntimeError("Test server failed to start")
             time.sleep(0.5)
 
     yield
 
-    # Cleanup
-    process.terminate()
-    process.join(timeout=5)
-    if process.is_alive():
-        process.kill()
+    # Cleanup - signal server to shutdown
+    server.should_exit = True
+    thread.join(timeout=5)
 
 
 @pytest.fixture
