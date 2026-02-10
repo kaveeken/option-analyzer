@@ -20,17 +20,9 @@ from tests.fixtures.ibkr_responses import (
 from tests.fixtures.fake_ibkr import FakeIBKRClient
 
 
-@pytest.fixture(scope="session")
-def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
-    """Create an event loop for the test session."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture(scope="session")
+@pytest.fixture
 async def browser():
-    """Create a browser instance for the test session."""
+    """Create a browser instance for each test."""
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         yield browser
