@@ -10,7 +10,6 @@ Tests cover:
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
-from unittest.mock import AsyncMock, Mock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -24,47 +23,30 @@ from option_analyzer.api.dependencies import (
 from option_analyzer.clients.ibkr import IBKRClient
 from option_analyzer.models.domain import OptionChain, OptionContract, Stock
 from option_analyzer.services.session import SessionService
+from tests.fixtures.ibkr_responses import make_stock, make_option_chain
+from tests.fixtures.fake_ibkr import FakeIBKRClient
 
 
 @pytest.fixture
 def mock_ibkr_client():
-    """Create a mock IBKR client with common responses."""
-    client = Mock(spec=IBKRClient)
+    """Create a fake IBKR client with common responses."""
+    client = FakeIBKRClient()
 
-    # Default stock response
-    mock_stock = Stock(
+    # Pre-configure with simple data for fast integration tests
+    client.add_stock("AAPL", make_stock(
         symbol="AAPL",
         current_price=150.25,
-        conid=265598,
         available_expirations=["JAN26", "FEB26"],
-    )
-    client.get_stock = AsyncMock(return_value=mock_stock)
+    ))
 
-    # Default option chain response
-    mock_call = OptionContract(
-        conid=123456,
-        strike=150.0,
-        right="C",
+    # Simple chain with one strike for fast tests
+    client.add_chain(265598, "JAN26", make_option_chain(
         expiration=date(2026, 1, 16),
-        bid=2.50,
-        ask=2.55,
-        multiplier=100,
-    )
-    mock_put = OptionContract(
-        conid=123457,
-        strike=150.0,
-        right="P",
-        expiration=date(2026, 1, 16),
-        bid=1.80,
-        ask=1.85,
-        multiplier=100,
-    )
-    mock_chain = OptionChain(
-        expiration=date(2026, 1, 16),
-        calls=[mock_call],
-        puts=[mock_put],
-    )
-    client.get_option_chain = AsyncMock(return_value=mock_chain)
+        strikes=[150.0],
+        base_price=150.25,
+        call_conid_start=123456,
+        put_conid_start=123457,
+    ))
 
     return client
 
@@ -184,12 +166,10 @@ class TestFullStrategyWorkflow:
         )
         assert add_response.status_code == 200
 
-        # Step 3: Mock historical data for analysis
+        # Step 3: Add historical data for analysis
         closes = [{"date": f"2023-{i//30+1:02d}-{i%30+1:02d}", "close": 100.0 + i * 0.5}
                   for i in range(260)]  # 1 year of data
-        mock_ibkr_client.get_historical_data = AsyncMock(
-            return_value={"symbol": "AAPL", "closes": closes}
-        )
+        mock_ibkr_client.add_historical(265598, {"symbol": "AAPL", "closes": closes})
 
         # Step 4: Analyze the strategy
         analyze_response = test_client.post(
@@ -284,7 +264,7 @@ class TestFullStrategyWorkflow:
             conid=265598,
             available_expirations=["JAN26", "FEB26", "MAR26"],
         )
-        mock_ibkr_client.get_stock = AsyncMock(return_value=mock_stock)
+        mock_ibkr_client.add_stock("AAPL", mock_stock)
 
         init_response = test_client.post("/api/strategy/init", json={"symbol": "AAPL"})
         assert init_response.status_code == 200
@@ -316,7 +296,7 @@ class TestFullStrategyWorkflow:
             calls=[mock_call],
             puts=[],
         )
-        mock_ibkr_client.get_option_chain = AsyncMock(return_value=mock_chain)
+        mock_ibkr_client.add_chain(265598, "FEB26", mock_chain)
 
         add_response = test_client.post(
             "/api/strategy/positions",
@@ -613,7 +593,7 @@ class TestPositionManagement:
             ],
             puts=[],
         )
-        mock_ibkr_client.get_option_chain = AsyncMock(return_value=modified_chain)
+        mock_ibkr_client.add_chain(265598, "JAN26", modified_chain)
 
         # Try to add position with different expiration
         add_response2 = test_client.post(

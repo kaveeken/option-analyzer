@@ -12,6 +12,12 @@ from playwright.async_api import Page, async_playwright
 
 from option_analyzer.clients.ibkr import IBKRClient
 from option_analyzer.models.domain import OptionChain, OptionContract, Stock
+from tests.fixtures.ibkr_responses import (
+    make_stock,
+    make_option_chain,
+    make_historical_data,
+)
+from tests.fixtures.fake_ibkr import FakeIBKRClient
 
 
 @pytest.fixture(scope="session")
@@ -47,103 +53,38 @@ def base_url() -> str:
 
 
 @pytest.fixture
-def mock_ibkr_client() -> MagicMock:
+def mock_ibkr_client() -> FakeIBKRClient:
     """
-    Create a mock IBKR client with standard responses.
+    Create a fake IBKR client with standard responses.
 
-    Returns a MagicMock configured with common test data for:
+    Returns a FakeIBKRClient configured with common test data for:
     - get_stock()
     - get_option_chain()
     - get_historical_data()
     """
-    mock = MagicMock(spec=IBKRClient)
+    client = FakeIBKRClient()
 
-    # Mock get_stock
-    mock.get_stock = AsyncMock(return_value=Stock(
+    # Use shared fixtures with comprehensive data for thorough e2e tests
+    expiration_date = date.today() + timedelta(days=30)
+
+    client.add_stock("AAPL", make_stock(
         symbol="AAPL",
         current_price=150.0,
-        conid=265598,
-        available_expirations=["JAN26", "FEB26", "MAR26"],
     ))
 
-    # Mock get_option_chain
-    expiration_date = date.today() + timedelta(days=30)
-    mock.get_option_chain = AsyncMock(return_value=OptionChain(
+    # Comprehensive chain with multiple strikes
+    client.add_chain(265598, "JAN26", make_option_chain(
         expiration=expiration_date,
-        calls=[
-            OptionContract(
-                conid=100001,
-                strike=140.0,
-                right="C",
-                expiration=expiration_date,
-                bid=12.0,
-                ask=12.5,
-                multiplier=100,
-            ),
-            OptionContract(
-                conid=100002,
-                strike=150.0,
-                right="C",
-                expiration=expiration_date,
-                bid=7.0,
-                ask=7.5,
-                multiplier=100,
-            ),
-            OptionContract(
-                conid=100003,
-                strike=160.0,
-                right="C",
-                expiration=expiration_date,
-                bid=3.0,
-                ask=3.5,
-                multiplier=100,
-            ),
-        ],
-        puts=[
-            OptionContract(
-                conid=200001,
-                strike=140.0,
-                right="P",
-                expiration=expiration_date,
-                bid=2.0,
-                ask=2.5,
-                multiplier=100,
-            ),
-            OptionContract(
-                conid=200002,
-                strike=150.0,
-                right="P",
-                expiration=expiration_date,
-                bid=6.0,
-                ask=6.5,
-                multiplier=100,
-            ),
-            OptionContract(
-                conid=200003,
-                strike=160.0,
-                right="P",
-                expiration=expiration_date,
-                bid=13.0,
-                ask=13.5,
-                multiplier=100,
-            ),
-        ],
+        strikes=[140.0, 150.0, 160.0],
+        base_price=150.0,
+        call_conid_start=100001,
+        put_conid_start=200001,
     ))
 
-    # Mock get_historical_data
-    import numpy as np
+    # Historical data for analysis (reproducible with seed=42)
+    client.add_historical(265598, make_historical_data(seed=42))
 
-    # Generate realistic price data
-    days = 252 * 5  # 5 years of trading days
-    base_price = 100.0
-    daily_returns = np.random.normal(0.0005, 0.02, days)  # ~12.5% annual return, 20% volatility
-    prices = base_price * np.exp(np.cumsum(daily_returns))
-
-    mock.get_historical_data = AsyncMock(return_value={
-        "closes": [{"close": float(price)} for price in prices]
-    })
-
-    return mock
+    return client
 
 
 @pytest.fixture
