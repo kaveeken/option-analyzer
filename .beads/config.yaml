@@ -60,3 +60,6 @@
 # - linear.api-key
 # - github.org
 # - github.repo
+
+# Default sort order for bd ready command
+ready-sort: priority
