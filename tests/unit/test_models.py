@@ -24,6 +24,7 @@ from option_analyzer.utils.exceptions import (
     InvalidQuantityError,
     MissingBidAskError,
     MixedExpirationError,
+    ValidationError as AppValidationError,
 )
 
 
@@ -497,10 +498,10 @@ class TestStrategy:
         strategy.validate_for_analysis()
 
     def test_validate_for_analysis_empty_strategy(self, sample_stock: Stock) -> None:
-        """Test that empty strategy (no positions) passes validation."""
+        """Test that empty strategy (no positions) raises ValidationError."""
         strategy = Strategy(stock=sample_stock, option_positions=[])
-        # Should not raise any exceptions
-        strategy.validate_for_analysis()
+        with pytest.raises(AppValidationError, match="No option positions"):
+            strategy.validate_for_analysis()
 
     def test_validate_for_analysis_mixed_expiration(self, sample_stock: Stock) -> None:
         """Test that mixed expiration dates raise MixedExpirationError."""

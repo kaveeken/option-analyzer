@@ -9,7 +9,7 @@ Tests cover:
 """
 
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date
+from datetime import date, timedelta
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -1330,18 +1330,19 @@ class TestAnalyzeStrategyEndpoint:
         response = test_client.post("/api/strategy/init", json={"symbol": "AAPL"})
         session_id = response.cookies.get("session_id")
 
-        # Add a position
+        # Add a position - use a future expiration date so analysis doesn't fail
+        future_expiration = date.today() + timedelta(days=90)
         mock_call = OptionContract(
             conid=123456,
             strike=150.0,
             right="C",
-            expiration=date(2026, 1, 16),
+            expiration=future_expiration,
             bid=2.50,
             ask=2.55,
             multiplier=100,
         )
         mock_chain = OptionChain(
-            expiration=date(2026, 1, 16),
+            expiration=future_expiration,
             calls=[mock_call],
             puts=[],
         )
@@ -1504,12 +1505,13 @@ class TestAnalyzeStrategyEndpoint:
         response = test_client.post("/api/strategy/init", json={"symbol": "AAPL"})
         session_id = response.cookies.get("session_id")
 
-        # Add put spread positions
+        # Add put spread positions - use a future expiration date so analysis doesn't fail
+        future_expiration = date.today() + timedelta(days=90)
         long_put = OptionContract(
             conid=123456,
             strike=150.0,
             right="P",
-            expiration=date(2026, 1, 16),
+            expiration=future_expiration,
             bid=4.50,
             ask=4.55,
             multiplier=100,
@@ -1518,13 +1520,13 @@ class TestAnalyzeStrategyEndpoint:
             conid=123457,
             strike=145.0,
             right="P",
-            expiration=date(2026, 1, 16),
+            expiration=future_expiration,
             bid=2.50,
             ask=2.55,
             multiplier=100,
         )
         mock_chain = OptionChain(
-            expiration=date(2026, 1, 16),
+            expiration=future_expiration,
             calls=[],
             puts=[long_put, short_put],
         )

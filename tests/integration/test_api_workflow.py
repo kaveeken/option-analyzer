@@ -9,7 +9,7 @@ Tests cover:
 
 import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -41,7 +41,7 @@ def mock_ibkr_client():
 
     # Simple chain with one strike for fast tests
     client.add_chain(265598, "JAN26", make_option_chain(
-        expiration=date(2026, 1, 16),
+        expiration=date.today() + timedelta(days=90),
         strikes=[150.0],
         base_price=150.25,
         call_conid_start=123456,
