@@ -41,6 +41,7 @@ class AppState {
             // UI state
             isLoading: false,
             loadingMessage: '',
+            chainLoading: false,
             error: null,
             autoAnalyze: true,
 
@@ -142,6 +143,7 @@ class AppState {
             analysis: null,
             isLoading: false,
             loadingMessage: '',
+            chainLoading: false,
             error: null,
             iv_30d: null,
             hist_vol: null,
@@ -162,6 +164,14 @@ class AppState {
             isLoading,
             loadingMessage: message,
         });
+    }
+
+    /**
+     * Set chain loading state (does not block the full-page overlay)
+     * @param {boolean} loading
+     */
+    setChainLoading(loading) {
+        this.setState({ chainLoading: loading });
     }
 
     /**

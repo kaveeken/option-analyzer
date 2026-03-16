@@ -4,6 +4,19 @@
  * Displays option chain with calls and puts, allows adding positions
  */
 
+// In-flight chain load controller — module-level so symbol changes can abort it
+let _chainAbortController = null;
+
+/**
+ * Abort any in-flight chain load (called when symbol changes)
+ */
+function abortChainLoad() {
+    if (_chainAbortController) {
+        _chainAbortController.abort();
+        _chainAbortController = null;
+    }
+}
+
 /**
  * Initialize option chain component
  */
@@ -17,13 +30,34 @@ function initOptionChain() {
         return;
     }
 
+    function setLoadingUI(loading) {
+        if (loading) {
+            monthLoad.textContent = 'Cancel';
+            monthLoad.disabled = false;
+            monthLoad.classList.replace('btn-primary', 'btn-secondary');
+        } else {
+            monthLoad.textContent = 'Load Chain';
+            monthLoad.disabled = !monthSelector.value;
+            monthLoad.classList.replace('btn-secondary', 'btn-primary');
+        }
+    }
+
     // Enable/disable load button based on selection
     on(monthSelector, 'change', () => {
-        monthLoad.disabled = !monthSelector.value;
+        if (!_chainAbortController) {
+            monthLoad.disabled = !monthSelector.value;
+        }
     });
 
-    // Handle load chain button click
+    // Handle load/cancel button click
     on(monthLoad, 'click', async () => {
+        // If loading, this click is a cancel
+        if (_chainAbortController) {
+            abortChainLoad();
+            setLoadingUI(false);
+            return;
+        }
+
         const symbol = state.get('symbol');
         const month = monthSelector.value;
         const currentTargetDate = state.get('targetDate');
@@ -33,20 +67,28 @@ function initOptionChain() {
             return;
         }
 
+        _chainAbortController = new AbortController();
+        const signal = _chainAbortController.signal;
+        setLoadingUI(true);
+
         try {
             // Update target date if it's different from current
             if (month !== currentTargetDate) {
-                await updateTargetDate(month);
+                await updateTargetDate(month, signal);
             }
 
             // Load option chain from API
-            await getOptionChain(symbol, month);
+            await getOptionChain(symbol, month, signal);
 
             // Show option chain section
             show(optionChainSection);
         } catch (error) {
-            // Error already handled by API client
-            console.error('Failed to load option chain:', error);
+            if (error.name !== 'AbortError') {
+                console.error('Failed to load option chain:', error);
+            }
+        } finally {
+            _chainAbortController = null;
+            setLoadingUI(false);
         }
     });
 

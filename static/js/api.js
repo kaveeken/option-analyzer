@@ -95,12 +95,13 @@ async function getStock(symbol) {
  * @param {string} month - Expiration month (e.g., "JAN26")
  * @returns {Promise<Object>} Option chain response
  */
-async function getOptionChain(symbol, month) {
-    state.setLoading(true, `Loading option chain for ${month}...`);
+async function getOptionChain(symbol, month, signal) {
+    state.setChainLoading(true);
 
     try {
         const data = await apiFetch(
-            `${API_BASE}/stocks/${symbol.toUpperCase()}/chains?month=${month.toUpperCase()}`
+            `${API_BASE}/stocks/${symbol.toUpperCase()}/chains?month=${month.toUpperCase()}`,
+            { signal }
         );
 
         // Update state with option chain data
@@ -108,10 +109,12 @@ async function getOptionChain(symbol, month) {
 
         return data;
     } catch (error) {
-        state.setError(error.message);
+        if (error.name !== 'AbortError') {
+            state.setError(error.message);
+        }
         throw error;
     } finally {
-        state.setLoading(false);
+        state.setChainLoading(false);
     }
 }
 
@@ -258,13 +261,12 @@ async function updateStockQuantity(quantity) {
  * @param {string} targetDate - New target expiration month (e.g., "FEB26")
  * @returns {Promise<Object>} Updated strategy response
  */
-async function updateTargetDate(targetDate) {
-    state.setLoading(true, 'Updating target date...');
-
+async function updateTargetDate(targetDate, signal) {
     try {
         const data = await apiFetch(`${API_BASE}/strategy/target-date`, {
             method: 'PATCH',
             body: JSON.stringify({ target_date: targetDate }),
+            signal,
         });
 
         // Update state with new target date
@@ -272,10 +274,10 @@ async function updateTargetDate(targetDate) {
 
         return data;
     } catch (error) {
-        state.setError(error.message);
+        if (error.name !== 'AbortError') {
+            state.setError(error.message);
+        }
         throw error;
-    } finally {
-        state.setLoading(false);
     }
 }
 

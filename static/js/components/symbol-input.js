@@ -28,6 +28,9 @@ function initSymbolInput() {
         }
 
         try {
+            // Abort any in-flight chain load for the previous symbol
+            abortChainLoad();
+
             // Initialize strategy with the symbol
             const data = await initStrategy(symbol);
 
