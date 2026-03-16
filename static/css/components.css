@@ -315,24 +315,18 @@ input[type="checkbox"] {
     font-weight: var(--font-weight-semibold);
 }
 
-/* Stock Info Groups (volatility, dividends) */
-.stock-info-primary {
+/* Stock Info Rows (symbol/price, volatility, dividends) */
+.stock-info-row {
     display: flex;
     gap: var(--space-lg);
-}
-
-.stock-info-group {
-    display: flex;
-    align-items: center;
-    gap: var(--space-md);
     flex-wrap: wrap;
 }
 
-.stock-info-divider {
-    width: 1px;
-    height: 1.5rem;
-    background-color: var(--color-border-hover);
-    flex-shrink: 0;
+.stock-info-section {
+    padding-top: var(--space-sm);
+    margin-top: var(--space-xs);
+    border-top: var(--border-width) solid var(--color-border);
+    width: 100%;
 }
 
 /* Delta cell color-coding */

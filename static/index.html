@@ -41,7 +41,8 @@
 
                 <!-- Stock Info Display -->
                 <div id="stock-info" class="stock-info hidden">
-                    <div class="stock-info-primary">
+                    <!-- Row 1: Symbol and Price -->
+                    <div class="stock-info-row">
                         <div class="stock-info-item">
                             <span class="label">Symbol:</span>
                             <span id="stock-symbol" class="value"></span>
@@ -51,34 +52,34 @@
                             <span id="stock-price" class="value"></span>
                         </div>
                     </div>
-                    <div id="stock-vol-group" class="stock-info-group hidden">
-                        <div class="stock-info-divider"></div>
+                    <!-- Row 2: Volatility metrics -->
+                    <div class="stock-info-row stock-info-section">
                         <div class="stock-info-item">
                             <span class="label">IV 30d:</span>
-                            <span id="stock-iv30d" class="value"></span>
+                            <span id="stock-iv30d" class="value mono"></span>
                         </div>
                         <div class="stock-info-item">
                             <span class="label">Hist Vol:</span>
-                            <span id="stock-histvol" class="value"></span>
+                            <span id="stock-histvol" class="value mono"></span>
                         </div>
                         <div class="stock-info-item">
                             <span class="label">IV/HV:</span>
-                            <span id="stock-ivhv" class="value"></span>
+                            <span id="stock-ivhv" class="value mono"></span>
                         </div>
                     </div>
-                    <div id="stock-div-group" class="stock-info-group hidden">
-                        <div class="stock-info-divider"></div>
+                    <!-- Row 3: Dividend metrics -->
+                    <div class="stock-info-row stock-info-section">
                         <div class="stock-info-item">
                             <span class="label">Div Fwd:</span>
-                            <span id="stock-div-fwd" class="value"></span>
+                            <span id="stock-div-fwd" class="value mono"></span>
                         </div>
                         <div class="stock-info-item">
                             <span class="label">Div TTM:</span>
-                            <span id="stock-div-ttm" class="value"></span>
+                            <span id="stock-div-ttm" class="value mono"></span>
                         </div>
                         <div class="stock-info-item">
                             <span class="label">Yield:</span>
-                            <span id="stock-div-yield" class="value"></span>
+                            <span id="stock-div-yield" class="value mono"></span>
                         </div>
                     </div>
                 </div>

@@ -92,39 +92,27 @@ function renderStockInfo(data) {
 
     // Support both API snake_case and state camelCase keys
     const price = data.current_price ?? data.currentPrice;
-    const iv30d = data.iv_30d;
-    const histVol = data.hist_vol;
-    const ivHv = data.iv_hv_ratio;
-    const divFwd = data.dividends_forward;
-    const divTtm = data.dividends_ttm;
+    const iv30d = data.iv_30d ?? null;
+    const histVol = data.hist_vol ?? null;
+    const ivHv = data.iv_hv_ratio ?? null;
+    const divFwd = data.dividends_forward ?? null;
+    const divTtm = data.dividends_ttm ?? null;
 
     setText(stockSymbol, data.symbol);
     setText(stockPrice, formatCurrency(price));
 
-    // Volatility group
-    const volGroup = getById('stock-vol-group');
-    if (volGroup && (iv30d != null || histVol != null || ivHv != null)) {
-        const fmt = v => v != null ? formatNumber(v, 1) + '%' : '—';
-        setText(getById('stock-iv30d'), fmt(iv30d));
-        setText(getById('stock-histvol'), fmt(histVol));
-        setText(getById('stock-ivhv'), fmt(ivHv));
-        show(volGroup);
-    } else if (volGroup) {
-        hide(volGroup);
-    }
+    // Volatility row — always show, use '—' when null
+    const fmtPct = v => v != null ? formatNumber(v, 1) + '%' : '—';
+    setText(getById('stock-iv30d'), fmtPct(iv30d));
+    setText(getById('stock-histvol'), fmtPct(histVol));
+    setText(getById('stock-ivhv'), fmtPct(ivHv));
 
-    // Dividend group
-    const divGroup = getById('stock-div-group');
-    if (divGroup && (divFwd != null || divTtm != null)) {
-        const fmtDiv = v => v != null ? '$' + formatNumber(v, 2) : '—';
-        setText(getById('stock-div-fwd'), fmtDiv(divFwd));
-        setText(getById('stock-div-ttm'), fmtDiv(divTtm));
-        const yield_ = (divFwd != null && price) ? formatNumber((divFwd / price) * 100, 2) + '%' : '—';
-        setText(getById('stock-div-yield'), yield_);
-        show(divGroup);
-    } else if (divGroup) {
-        hide(divGroup);
-    }
+    // Dividend row — always show, use '—' when null
+    const fmtDiv = v => v != null ? '$' + formatNumber(v, 2) : '—';
+    setText(getById('stock-div-fwd'), fmtDiv(divFwd));
+    setText(getById('stock-div-ttm'), fmtDiv(divTtm));
+    const yieldVal = (divFwd != null && price) ? formatNumber((divFwd / price) * 100, 2) + '%' : '—';
+    setText(getById('stock-div-yield'), yieldVal);
 
     show(stockInfo);
 }

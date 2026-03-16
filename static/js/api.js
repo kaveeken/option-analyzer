@@ -131,6 +131,11 @@ async function getStrategySummary() {
             availableExpirations: data.available_expirations,
             stockQuantity: data.stock_quantity,
             positions: data.positions,
+            iv_30d: data.iv_30d ?? null,
+            hist_vol: data.hist_vol ?? null,
+            iv_hv_ratio: data.iv_hv_ratio ?? null,
+            dividends_forward: data.dividends_forward ?? null,
+            dividends_ttm: data.dividends_ttm ?? null,
         });
 
         return data;

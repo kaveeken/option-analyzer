@@ -115,3 +115,7 @@ body {
 .text-muted {
     color: var(--color-text-muted);
 }
+
+.mono {
+    font-family: var(--font-family-mono);
+}
