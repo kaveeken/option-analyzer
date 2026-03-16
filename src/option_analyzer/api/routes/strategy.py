@@ -322,6 +322,11 @@ async def add_position(
         "quantity": request.quantity,
         "bid": contract.bid,
         "ask": contract.ask,
+        "delta": contract.delta,
+        "gamma": contract.gamma,
+        "theta": contract.theta,
+        "vega": contract.vega,
+        "implied_volatility": contract.implied_volatility,
     }
     positions.append(position_data)
     strategy["positions"] = positions
@@ -583,6 +588,11 @@ def _reconstruct_strategy_from_session(session: SessionState) -> Strategy:
             expiration=date.fromisoformat(pos_data["expiration"]),
             bid=pos_data.get("bid"),
             ask=pos_data.get("ask"),
+            delta=pos_data.get("delta"),
+            gamma=pos_data.get("gamma"),
+            theta=pos_data.get("theta"),
+            vega=pos_data.get("vega"),
+            implied_volatility=pos_data.get("implied_volatility"),
         )
         position = OptionPosition(contract=contract, quantity=pos_data["quantity"])
         option_positions.append(position)

@@ -22,6 +22,11 @@ def make_stock(
     current_price: float = 150.0,
     conid: int = 265598,
     available_expirations: list[str] | None = None,
+    iv_30d: float | None = None,
+    hist_vol: float | None = None,
+    iv_hv_ratio: float | None = None,
+    dividends_forward: float | None = None,
+    dividends_ttm: float | None = None,
 ) -> Stock:
     """
     Create a Stock instance with customizable parameters.
@@ -31,6 +36,11 @@ def make_stock(
         current_price: Current market price
         conid: IBKR contract ID
         available_expirations: List of expiration months (defaults to JAN26, FEB26, MAR26)
+        iv_30d: 30-day implied volatility % (IBKR field 7283)
+        hist_vol: 30-day historical volatility % (IBKR field 7087)
+        iv_hv_ratio: IV/HV ratio as percentage (IBKR field 7084)
+        dividends_forward: Expected dividends per share next 12 months (IBKR field 7671)
+        dividends_ttm: Dividends per share last 12 months (IBKR field 7672)
 
     Returns:
         Stock instance with specified parameters
@@ -43,6 +53,11 @@ def make_stock(
         current_price=current_price,
         conid=conid,
         available_expirations=available_expirations,
+        iv_30d=iv_30d,
+        hist_vol=hist_vol,
+        iv_hv_ratio=iv_hv_ratio,
+        dividends_forward=dividends_forward,
+        dividends_ttm=dividends_ttm,
     )
 
 
@@ -58,6 +73,11 @@ def make_option_contract(
     bid: float | None = None,
     ask: float | None = None,
     multiplier: int = 100,
+    delta: float | None = None,
+    gamma: float | None = None,
+    theta: float | None = None,
+    vega: float | None = None,
+    implied_volatility: float | None = None,
 ) -> OptionContract:
     """
     Create an OptionContract with sensible defaults.
@@ -70,6 +90,11 @@ def make_option_contract(
         bid: Bid price (defaults to intrinsic + small premium)
         ask: Ask price (defaults to bid + spread)
         multiplier: Contract multiplier (default 100)
+        delta: Option delta (IBKR field 7308)
+        gamma: Option gamma (IBKR field 7309)
+        theta: Option theta (IBKR field 7310)
+        vega: Option vega (IBKR field 7311)
+        implied_volatility: Per-strike IV% (IBKR field 7633)
 
     Returns:
         OptionContract instance
@@ -85,6 +110,11 @@ def make_option_contract(
         bid=bid,
         ask=ask,
         multiplier=multiplier,
+        delta=delta,
+        gamma=gamma,
+        theta=theta,
+        vega=vega,
+        implied_volatility=implied_volatility,
     )
 
 

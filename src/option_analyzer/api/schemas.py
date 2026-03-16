@@ -48,6 +48,11 @@ class StockResponse(BaseModel):
         current_price: Current market price
         conid: IBKR contract identifier
         available_expirations: Available option expiration months
+        iv_30d: 30-day implied volatility % of the underlying (IBKR field 7283)
+        hist_vol: 30-day historical volatility % of the underlying (IBKR field 7087)
+        iv_hv_ratio: IV/HV ratio as a percentage (IBKR field 7084)
+        dividends_forward: Expected dividends per share over the next 12 months (IBKR field 7671)
+        dividends_ttm: Dividends per share paid over the last 12 months (IBKR field 7672)
     """
 
     symbol: str = Field(description="Stock ticker symbol", examples=["AAPL"])
@@ -55,6 +60,25 @@ class StockResponse(BaseModel):
     conid: int = Field(description="IBKR contract identifier")
     available_expirations: list[str] = Field(
         description="Available option expiration months", examples=[["JAN26", "FEB26"]]
+    )
+    iv_30d: float | None = Field(
+        default=None, description="30-day implied volatility % (IBKR field 7283)", examples=[28.5]
+    )
+    hist_vol: float | None = Field(
+        default=None, description="30-day historical volatility % (IBKR field 7087)", examples=[22.3]
+    )
+    iv_hv_ratio: float | None = Field(
+        default=None, description="IV/HV ratio as percentage (IBKR field 7084)", examples=[127.9]
+    )
+    dividends_forward: float | None = Field(
+        default=None,
+        description="Expected dividends per share next 12 months (IBKR field 7671)",
+        examples=[0.96],
+    )
+    dividends_ttm: float | None = Field(
+        default=None,
+        description="Dividends per share last 12 months (IBKR field 7672)",
+        examples=[0.92],
     )
 
 
@@ -70,6 +94,11 @@ class OptionContractResponse(BaseModel):
         bid: Current bid price per share
         ask: Current ask price per share
         multiplier: Shares per contract
+        delta: Rate of change of option price per $1 move in underlying (IBKR field 7308)
+        gamma: Rate of change of delta per $1 move in underlying (IBKR field 7309)
+        theta: Daily time decay in dollars (IBKR field 7310)
+        vega: Price change per 1% move in implied volatility (IBKR field 7311)
+        implied_volatility: Per-strike implied volatility % (IBKR field 7633)
     """
 
     conid: int = Field(description="IBKR contract identifier")
@@ -79,6 +108,15 @@ class OptionContractResponse(BaseModel):
     bid: float | None = Field(description="Bid price per share", examples=[2.50])
     ask: float | None = Field(description="Ask price per share", examples=[2.55])
     multiplier: int = Field(description="Shares per contract", examples=[100])
+    delta: float | None = Field(default=None, description="Delta (IBKR field 7308)", examples=[0.45])
+    gamma: float | None = Field(default=None, description="Gamma (IBKR field 7309)", examples=[0.02])
+    theta: float | None = Field(default=None, description="Theta (IBKR field 7310)", examples=[-0.05])
+    vega: float | None = Field(default=None, description="Vega (IBKR field 7311)", examples=[0.15])
+    implied_volatility: float | None = Field(
+        default=None,
+        description="Per-strike implied volatility % (IBKR field 7633)",
+        examples=[28.5],
+    )
 
 
 class OptionChainResponse(BaseModel):
@@ -178,6 +216,11 @@ class PositionResponse(BaseModel):
         quantity: Number of contracts
         bid: Bid price per share
         ask: Ask price per share
+        delta: Delta at time of position entry (IBKR field 7308)
+        gamma: Gamma at time of position entry (IBKR field 7309)
+        theta: Theta at time of position entry (IBKR field 7310)
+        vega: Vega at time of position entry (IBKR field 7311)
+        implied_volatility: Per-strike IV% at time of position entry (IBKR field 7633)
     """
 
     conid: int = Field(description="IBKR contract identifier")
@@ -187,6 +230,13 @@ class PositionResponse(BaseModel):
     quantity: int = Field(description="Number of contracts")
     bid: float | None = Field(description="Bid price per share")
     ask: float | None = Field(description="Ask price per share")
+    delta: float | None = Field(default=None, description="Delta (IBKR field 7308)")
+    gamma: float | None = Field(default=None, description="Gamma (IBKR field 7309)")
+    theta: float | None = Field(default=None, description="Theta (IBKR field 7310)")
+    vega: float | None = Field(default=None, description="Vega (IBKR field 7311)")
+    implied_volatility: float | None = Field(
+        default=None, description="Per-strike IV% (IBKR field 7633)"
+    )
 
 
 class PositionsResponse(BaseModel):

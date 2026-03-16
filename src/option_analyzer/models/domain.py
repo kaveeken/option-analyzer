@@ -31,12 +31,22 @@ class Stock(BaseModel):
         current_price: Current market price per share
         conid: IBKR contract identifier
         available_expirations: List of available option expiration dates
+        iv_30d: 30-day implied volatility of the underlying (field 7283), as a percentage
+        hist_vol: 30-day historical volatility of the underlying (field 7087), as a percentage
+        iv_hv_ratio: IV/HV ratio expressed as a percentage (field 7084)
+        dividends_forward: Expected dividends over the next 12 months per share (field 7671)
+        dividends_ttm: Dividends paid over the last 12 months per share (field 7672)
     """
 
     symbol: str
     current_price: float = Field(gt=0, description="Current stock price (must be positive)")
     conid: int # @todo l3b
     available_expirations: list[str] = Field(default_factory=list)
+    iv_30d: float | None = None
+    hist_vol: float | None = None
+    iv_hv_ratio: float | None = None
+    dividends_forward: float | None = None
+    dividends_ttm: float | None = None
 
     def payoff_at_price(self, price: float) -> float:
         """
@@ -72,6 +82,11 @@ class OptionContract(BaseModel):
     bid: float | None = Field(default=None, ge=0)
     ask: float | None = Field(default=None, ge=0)
     multiplier: int = Field(default=100, gt=0)
+    delta: float | None = None
+    gamma: float | None = None
+    theta: float | None = None
+    vega: float | None = None
+    implied_volatility: float | None = None
 
     def intrinsic_value(self, price: float) -> float:
         """

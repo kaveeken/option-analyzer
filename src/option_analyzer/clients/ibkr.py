@@ -8,6 +8,29 @@ from typing import Any, Literal
 
 import httpx
 
+
+def _parse_float_field(value: Any) -> float | None:
+    """
+    Parse a float field from an IBKR market data snapshot.
+
+    IBKR returns some fields as strings, sometimes with a prefix character:
+      - 'C' prefix = previous day's closing price
+      - 'H' prefix = trading halted
+
+    Returns None for None input or unparseable strings.
+    """
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        stripped = value.lstrip("CH")
+        try:
+            return float(stripped)
+        except (ValueError, AttributeError):
+            return None
+    return None
+
 from option_analyzer.clients.cache import CacheInterface
 from option_analyzer.config import Settings
 from option_analyzer.models.domain import OptionChain, OptionContract, Stock
@@ -138,19 +161,47 @@ class IBKRClient:
         # @todo swf: validate and raise for Nones. or maybe account for Nones downstream
         return {
             "conid": int(snapshot_entry["conid"]),
-            "last": snapshot_entry.get("31", None),
-            "bid": snapshot_entry.get("84", None),
-            "ask": snapshot_entry.get("86", None)}
+            "last": _parse_float_field(snapshot_entry.get("31")),
+            "bid": _parse_float_field(snapshot_entry.get("84")),
+            "ask": _parse_float_field(snapshot_entry.get("86")),
+            # Option greeks (fields 7308-7311, per-strike)
+            "delta": _parse_float_field(snapshot_entry.get("7308")),
+            "gamma": _parse_float_field(snapshot_entry.get("7309")),
+            "theta": _parse_float_field(snapshot_entry.get("7310")),
+            "vega": _parse_float_field(snapshot_entry.get("7311")),
+            # Per-strike implied volatility (field 7633)
+            "implied_volatility": _parse_float_field(snapshot_entry.get("7633")),
+            # Stock-level volatility metrics (fields 7283, 7087, 7084)
+            "iv_30d": _parse_float_field(snapshot_entry.get("7283")),
+            "hist_vol": _parse_float_field(snapshot_entry.get("7087")),
+            "iv_hv_ratio": _parse_float_field(snapshot_entry.get("7084")),
+            # Dividends in dollars per share (fields 7671, 7672)
+            "dividends_forward": _parse_float_field(snapshot_entry.get("7671")),
+            "dividends_ttm": _parse_float_field(snapshot_entry.get("7672")),
+        }
 
-    async def get_market_snapshot(self, conid: int|str, ttl: timedelta | None) -> list[dict[str, float|int|None]]:
+    async def get_market_snapshot(
+        self,
+        conid: int|str,
+        ttl: timedelta | None,
+        fields: str = "31,84,86",
+    ) -> list[dict[str, float|int|None]]:
         """
         Get current market data for given contract id.
-        Requested fields:
-        31: last price
-        84: bid price
-        86: ask price
+
+        Args:
+            conid: Contract ID or comma-separated list of contract IDs
+            ttl: Cache TTL (None to skip caching)
+            fields: Comma-separated IBKR field codes to request.
+                    Defaults to "31,84,86" (last, bid, ask).
+                    Always include 31,84,86 for the preflight check to work.
+
+        Standard fields: 31=last, 84=bid, 86=ask
+        Greeks: 7308=delta, 7309=gamma, 7310=theta, 7311=vega
+        IV: 7633=per-strike IV%, 7283=underlying IV 30d, 7087=hist vol, 7084=IV/HV ratio
+        Dividends: 7671=forward 12mo, 7672=TTM
         """
-        endpoint = f"iserver/marketdata/snapshot?conids={conid}&fields=31,84,86"
+        endpoint = f"iserver/marketdata/snapshot?conids={conid}&fields={fields}"
         response = self._cache.get(endpoint) # duplicate code
         def _response_has_all_prices(response: list[dict[str,float]]) -> bool:
             return response[0].get("31", None) is not None \
@@ -173,6 +224,9 @@ class IBKRClient:
             raise IBKRAPIError("Invalid marked data snapshot")
         return [self._parse_market_snapshot(entry) for entry in response]
 
+    # Fields to request for a stock snapshot: price + vol metrics + dividends
+    _STOCK_FIELDS = "31,84,86,7283,7087,7084,7671,7672"
+
     async def get_stock(self, symbol: str) -> Stock:
         results = await self.get_search_results(symbol)
         conid = int(results[0]["conid"])
@@ -180,14 +234,22 @@ class IBKRClient:
         for section in results[0]["sections"]:
             if section["secType"] == "OPT":
                 months = section["months"].split(";")
-        snapshot = await self.get_market_snapshot(conid, timedelta(minutes=5))
+        snapshot = await self.get_market_snapshot(conid, timedelta(minutes=5), fields=self._STOCK_FIELDS)
         if len(snapshot) == 0:
             logger.debug(snapshot)
             raise IBKRAPIError("Invalid marked data snapshot")
-        return Stock(symbol=symbol,
-                     current_price=snapshot[0]["last"], # @todo swf: sometimes pydantic validation error for None
-                     conid=conid,
-                     available_expirations=months)
+        snap = snapshot[0]
+        return Stock(
+            symbol=symbol,
+            current_price=snap["last"], # @todo swf: sometimes pydantic validation error for None
+            conid=conid,
+            available_expirations=months,
+            iv_30d=snap.get("iv_30d"),
+            hist_vol=snap.get("hist_vol"),
+            iv_hv_ratio=snap.get("iv_hv_ratio"),
+            dividends_forward=snap.get("dividends_forward"),
+            dividends_ttm=snap.get("dividends_ttm"),
+        )
 
     async def get_option_strikes(
             self,
@@ -260,6 +322,9 @@ class IBKRClient:
             calls=calls.values(),
             puts=puts.values())
 
+    # Fields to request for an option snapshot: price + greeks + per-strike IV
+    _OPTION_FIELDS = "31,84,86,7308,7309,7310,7311,7633"
+
     async def price_option_chain(self, chain: OptionChain) -> None:
         conids = [str(contract.conid) for contract in [*chain.calls, *chain.puts]]
         market_snapshot = []
@@ -268,7 +333,10 @@ class IBKRClient:
             conid_slice = conids[i:min(i+CONSECUTIVE_CONIDS, len(conids))]
             if len(conid_slice) > 0:
                 market_snapshot.extend(
-                    await self.get_market_snapshot(",".join(conid_slice), timedelta(minutes=15)))
+                    await self.get_market_snapshot(
+                        ",".join(conid_slice), timedelta(minutes=15), fields=self._OPTION_FIELDS
+                    )
+                )
         for snapshot_element in market_snapshot:
             contract_conid = snapshot_element["conid"]
             if not isinstance(contract_conid, int):
@@ -278,6 +346,11 @@ class IBKRClient:
                 if call.conid == contract_conid:
                     call.ask = snapshot_element["ask"]
                     call.bid = snapshot_element["bid"]
+                    call.delta = snapshot_element.get("delta")
+                    call.gamma = snapshot_element.get("gamma")
+                    call.theta = snapshot_element.get("theta")
+                    call.vega = snapshot_element.get("vega")
+                    call.implied_volatility = snapshot_element.get("implied_volatility")
                     found = True
                     break
             if found:
@@ -286,6 +359,11 @@ class IBKRClient:
                 if put.conid == contract_conid:
                     put.ask = snapshot_element["ask"]
                     put.bid = snapshot_element["bid"]
+                    put.delta = snapshot_element.get("delta")
+                    put.gamma = snapshot_element.get("gamma")
+                    put.theta = snapshot_element.get("theta")
+                    put.vega = snapshot_element.get("vega")
+                    put.implied_volatility = snapshot_element.get("implied_volatility")
                     found = True
                     break
             if not found:

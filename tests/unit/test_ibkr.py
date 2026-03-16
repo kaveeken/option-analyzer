@@ -422,9 +422,9 @@ class TestGetStock:
 
         await client.get_stock("AAPL")
 
-        # Verify get_market_snapshot was called with 5min TTL
+        # Verify get_market_snapshot was called with 5min TTL and stock fields
         client.get_market_snapshot.assert_called_once_with(
-            265598, timedelta(minutes=5)
+            265598, timedelta(minutes=5), fields=IBKRClient._STOCK_FIELDS
         )
 
     @pytest.mark.asyncio

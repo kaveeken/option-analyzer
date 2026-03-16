@@ -49,6 +49,11 @@ async def get_stock(
         current_price=stock.current_price,
         conid=stock.conid,
         available_expirations=stock.available_expirations,
+        iv_30d=stock.iv_30d,
+        hist_vol=stock.hist_vol,
+        iv_hv_ratio=stock.iv_hv_ratio,
+        dividends_forward=stock.dividends_forward,
+        dividends_ttm=stock.dividends_ttm,
     )
 
 
@@ -108,6 +113,11 @@ async def get_option_chain(
             bid=c.bid,
             ask=c.ask,
             multiplier=c.multiplier,
+            delta=c.delta,
+            gamma=c.gamma,
+            theta=c.theta,
+            vega=c.vega,
+            implied_volatility=c.implied_volatility,
         )
         for c in chain.calls
     ]
@@ -121,6 +131,11 @@ async def get_option_chain(
             bid=p.bid,
             ask=p.ask,
             multiplier=p.multiplier,
+            delta=p.delta,
+            gamma=p.gamma,
+            theta=p.theta,
+            vega=p.vega,
+            implied_volatility=p.implied_volatility,
         )
         for p in chain.puts
     ]
