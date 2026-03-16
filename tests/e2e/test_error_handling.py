@@ -252,16 +252,25 @@ class TestSessionExpiration:
         page: Page,
         base_url: str,
     ):
-        """Session-expired error banner contains 'session' in the message."""
+        """Session-expired error banner contains 'Session' in the message."""
         await _init_page(page, base_url)
 
-        # Intercept init with a 401 — simplest way to surface SESSION_EXPIRED in the banner
+        # Session expiration happens on post-init calls, not on init itself.
+        # Intercept add-position (the realistic trigger) and return 401.
         await page.route(
-            "**/api/strategy/init",
+            "**/api/strategy/positions",
             _json_route(401, {"error": "Session not found or expired", "code": "SESSION_EXPIRED"}),
         )
 
         await _enter_symbol(page, "AAPL")
+        await page.wait_for_selector("#stock-info:not(.hidden)", timeout=10000)
+
+        await page.select_option("#month-selector", "JAN26")
+        await page.click("#month-load")
+        await page.wait_for_selector("#option-chain-section:not(.hidden)", timeout=10000)
+
+        page.once("dialog", lambda dialog: dialog.accept("1"))
+        await page.locator('button[data-conid="100002"]').first.click()
 
         await expect(page.locator("#error-banner")).not_to_have_class(re.compile(r"hidden"), timeout=5000)
         await expect(page.locator("#error-message")).to_contain_text("Session")
@@ -335,8 +344,6 @@ class TestErrorRecovery:
     ):
         """Multiple errors in a row followed by success still loads correctly."""
         await _init_page(page, base_url)
-
-        error_body = json.dumps({"error": "Symbol not found", "code": "SYMBOL_NOT_FOUND"})
 
         # Two consecutive failures
         for _ in range(2):
@@ -420,7 +427,7 @@ class TestErrorBannerUI:
         """A second error replaces the message from the first error in the banner."""
         await _init_page(page, base_url)
 
-        # First error: SYMBOL_NOT_FOUND → "Stock symbol not found."
+        # First error: backend returns "Not found" (raw message shown in banner)
         await page.route(
             "**/api/strategy/init",
             _json_route(404, {"error": "Not found", "code": "SYMBOL_NOT_FOUND"}),
@@ -431,7 +438,7 @@ class TestErrorBannerUI:
 
         await page.unroute("**/api/strategy/init")
 
-        # Second error: IBKR_API_ERROR → "Unable to connect to Interactive Brokers..."
+        # Second error: backend returns "IBKR error" (different raw message)
         await page.route(
             "**/api/strategy/init",
             _json_route(502, {"error": "IBKR error", "code": "IBKR_API_ERROR"}),
