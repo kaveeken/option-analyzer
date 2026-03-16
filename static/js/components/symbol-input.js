@@ -34,6 +34,9 @@ function initSymbolInput() {
             // Render stock information
             renderStockInfo(data);
 
+            // Fetch volatility history in background (non-blocking)
+            fetchVolatilityHistory(symbol);
+
             // Populate month dropdown
             populateMonthDropdown(data.available_expirations, data.target_date);
 

@@ -85,6 +85,27 @@
                 </div>
             </section>
 
+            <!-- Volatility Chart Section -->
+            <section id="vol-chart-section" class="section hidden">
+                <div class="vol-chart-header">
+                    <h2>Realized Volatility</h2>
+                    <div class="rv-window-controls">
+                        <button id="rv-window-30d" class="btn-window active">30d</button>
+                        <button id="rv-window-dte" class="btn-window">DTE</button>
+                        <input
+                            type="number"
+                            id="rv-window-input"
+                            class="rv-window-input"
+                            value="30"
+                            min="2"
+                            max="252"
+                            title="Custom window (trading days)"
+                        >
+                    </div>
+                </div>
+                <canvas id="vol-chart-canvas" class="vol-chart-canvas"></canvas>
+            </section>
+
             <!-- Month Selector Section -->
             <section id="month-section" class="section hidden">
                 <h2>Expiration Month</h2>
@@ -239,6 +260,7 @@
     <script src="/static/js/errors.js"></script>
     <script src="/static/js/api.js"></script>
     <script src="/static/js/components/symbol-input.js"></script>
+    <script src="/static/js/components/volatility-chart.js"></script>
     <script src="/static/js/components/option-chain.js"></script>
     <script src="/static/js/components/position-manager.js"></script>
     <script src="/static/js/components/analysis.js"></script>

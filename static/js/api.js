@@ -334,6 +334,30 @@ async function resetStrategy() {
 }
 
 /**
+ * Fetch 3 years of daily closes for realized volatility chart
+ * Non-fatal: silently fails if history unavailable (e.g., outside market hours)
+ * @param {string} symbol - Stock ticker symbol
+ * @returns {Promise<Object|null>} History data or null on failure
+ */
+async function fetchVolatilityHistory(symbol) {
+    try {
+        const data = await apiFetch(`${API_BASE}/stocks/${symbol.toUpperCase()}/history`);
+        state.setState({
+            volHistory: {
+                closes: data.closes,
+                currentIv: data.current_iv,
+                symbol: data.symbol,
+            },
+        });
+        return data;
+    } catch (error) {
+        console.error('Failed to fetch volatility history:', error);
+        // Non-fatal: chart stays hidden
+        return null;
+    }
+}
+
+/**
  * Health check endpoint
  * @returns {Promise<Object>} Health check response
  */

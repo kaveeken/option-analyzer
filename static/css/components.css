@@ -478,3 +478,64 @@ input[type="checkbox"] {
     color: white;
     border-color: var(--color-primary);
 }
+
+/* Volatility Chart */
+.vol-chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-sm);
+}
+
+.rv-window-controls {
+    display: flex;
+    gap: var(--space-xs);
+    align-items: center;
+}
+
+.btn-window {
+    padding: 2px var(--space-sm);
+    font-size: var(--font-size-sm);
+    border: var(--border-width) solid var(--color-border);
+    background: var(--color-bg);
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    transition: all var(--transition-fast);
+}
+
+.btn-window:hover {
+    border-color: var(--color-border-hover);
+    color: var(--color-text);
+}
+
+.btn-window.active {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: white;
+}
+
+.rv-window-input {
+    width: 64px;
+    padding: 2px var(--space-xs);
+    font-size: var(--font-size-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    text-align: center;
+    flex: none;
+}
+
+.rv-window-input.active {
+    border-color: var(--color-primary);
+    outline: none;
+}
+
+.rv-window-input:focus {
+    border-color: var(--color-primary);
+    outline: none;
+}
+
+.vol-chart-canvas {
+    width: 100%;
+    display: block;
+}

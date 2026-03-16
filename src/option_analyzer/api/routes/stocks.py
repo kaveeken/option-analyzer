@@ -10,7 +10,13 @@ from fastapi import APIRouter, Depends
 
 from ...clients.ibkr import IBKRClient
 from ..dependencies import get_ibkr_client
-from ..schemas import OptionChainResponse, OptionContractResponse, StockResponse
+from ..schemas import (
+    CloseEntry,
+    OptionChainResponse,
+    OptionContractResponse,
+    StockResponse,
+    VolatilityHistoryResponse,
+)
 
 router = APIRouter(prefix="/api/stocks", tags=["stocks"])
 
@@ -54,6 +60,38 @@ async def get_stock(
         iv_hv_ratio=stock.iv_hv_ratio,
         dividends_forward=stock.dividends_forward,
         dividends_ttm=stock.dividends_ttm,
+    )
+
+
+@router.get("/{symbol}/history", response_model=VolatilityHistoryResponse)
+async def get_stock_history(
+    symbol: str,
+    ibkr: Annotated[IBKRClient, Depends(get_ibkr_client)],
+) -> VolatilityHistoryResponse:
+    """
+    Get 3 years of daily closing prices for realized volatility computation.
+
+    Args:
+        symbol: Stock ticker symbol (e.g., "AAPL")
+        ibkr: IBKR client dependency
+
+    Returns:
+        Daily closes sorted oldest-first, plus current IV for reference line
+
+    Example:
+        GET /api/stocks/AAPL/history
+        Response: {
+            "symbol": "AAPL",
+            "closes": [{"date": "2023-03-15", "close": 150.25}, ...],
+            "current_iv": 28.5
+        }
+    """
+    stock = await ibkr.get_stock(symbol.upper())
+    history = await ibkr.get_historical_data(stock.conid, years=3)
+    return VolatilityHistoryResponse(
+        symbol=history["symbol"],
+        closes=[CloseEntry(date=c["date"], close=c["close"]) for c in history["closes"]],
+        current_iv=stock.iv_30d,
     )
 
 

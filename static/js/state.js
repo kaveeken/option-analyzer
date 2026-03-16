@@ -25,6 +25,9 @@ class AppState {
             dividends_forward: null,
             dividends_ttm: null,
 
+            // Volatility history (fetched separately after symbol load)
+            volHistory: null, // { closes: [{date, close}], currentIv: number|null, symbol: string }
+
             // Option chain data
             optionChain: null, // { expiration, calls: [], puts: [] }
 
@@ -145,6 +148,7 @@ class AppState {
             iv_hv_ratio: null,
             dividends_forward: null,
             dividends_ttm: null,
+            volHistory: null,
         });
     }
 
@@ -195,6 +199,7 @@ class AppState {
             iv_hv_ratio: data.iv_hv_ratio ?? null,
             dividends_forward: data.dividends_forward ?? null,
             dividends_ttm: data.dividends_ttm ?? null,
+            volHistory: null, // cleared until history fetch completes
         });
     }
 

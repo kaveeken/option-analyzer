@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize components
     initSymbolInput();
+    volatilityChart.init();
     initOptionChain();
     initPositionManager();
     initAnalysis();

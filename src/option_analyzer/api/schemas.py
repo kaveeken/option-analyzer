@@ -134,6 +134,32 @@ class OptionChainResponse(BaseModel):
     puts: list[OptionContractResponse] = Field(description="Put option contracts")
 
 
+class CloseEntry(BaseModel):
+    """A single daily closing price entry."""
+
+    date: str = Field(description="ISO date string", examples=["2024-03-15"])
+    close: float = Field(description="Closing price", examples=[150.25])
+
+
+class VolatilityHistoryResponse(BaseModel):
+    """
+    Historical price closes for realized volatility computation.
+
+    Attributes:
+        symbol: Stock ticker symbol
+        closes: Daily closing prices sorted oldest-first
+        current_iv: Current 30-day implied volatility % (IBKR field 7283)
+    """
+
+    symbol: str = Field(description="Stock ticker symbol", examples=["AAPL"])
+    closes: list[CloseEntry] = Field(description="Daily closing prices, oldest first")
+    current_iv: float | None = Field(
+        default=None,
+        description="Current 30-day implied volatility % (IBKR field 7283)",
+        examples=[28.5],
+    )
+
+
 class StrategyInitRequest(BaseModel):
     """
     Request to initialize a new strategy.
