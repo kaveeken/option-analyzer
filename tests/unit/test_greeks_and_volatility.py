@@ -831,3 +831,129 @@ class TestPositionGreeks:
         pos = positions[0]
         assert pos["delta"] == pytest.approx(0.45)
         assert pos["implied_volatility"] == pytest.approx(28.5)
+
+
+# ============================================================================
+# API: Strategy init and summary include stock vol/dividend fields
+# ============================================================================
+
+
+class TestStrategyVolatilityFields:
+    """Test that strategy init and summary responses include vol/dividend fields."""
+
+    def test_strategy_init_includes_vol_fields(
+        self, test_client, mock_ibkr_client
+    ) -> None:
+        """POST /api/strategy/init includes vol/dividend fields in response."""
+        mock_stock = Stock(
+            symbol="AAPL",
+            current_price=150.25,
+            conid=265598,
+            available_expirations=["JAN26", "FEB26"],
+            iv_30d=28.5,
+            hist_vol=22.3,
+            iv_hv_ratio=127.9,
+            dividends_forward=0.96,
+            dividends_ttm=0.92,
+        )
+        mock_ibkr_client.get_stock = AsyncMock(return_value=mock_stock)
+
+        response = test_client.post("/api/strategy/init", json={"symbol": "AAPL"})
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["iv_30d"] == pytest.approx(28.5)
+        assert data["hist_vol"] == pytest.approx(22.3)
+        assert data["iv_hv_ratio"] == pytest.approx(127.9)
+        assert data["dividends_forward"] == pytest.approx(0.96)
+        assert data["dividends_ttm"] == pytest.approx(0.92)
+
+    def test_strategy_init_vol_fields_null_when_absent(
+        self, test_client, mock_ibkr_client
+    ) -> None:
+        mock_stock = Stock(
+            symbol="AAPL", current_price=150.25, conid=265598,
+            available_expirations=["JAN26"],
+        )
+        mock_ibkr_client.get_stock = AsyncMock(return_value=mock_stock)
+
+        response = test_client.post("/api/strategy/init", json={"symbol": "AAPL"})
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["iv_30d"] is None
+        assert data["dividends_forward"] is None
+
+    def test_strategy_summary_includes_vol_fields(
+        self, test_client, mock_ibkr_client
+    ) -> None:
+        """GET /api/strategy returns vol/dividend fields stored from init."""
+        mock_stock = Stock(
+            symbol="AAPL",
+            current_price=150.25,
+            conid=265598,
+            available_expirations=["JAN26"],
+            iv_30d=28.5,
+            hist_vol=22.3,
+            iv_hv_ratio=127.9,
+            dividends_forward=0.96,
+            dividends_ttm=0.92,
+        )
+        mock_ibkr_client.get_stock = AsyncMock(return_value=mock_stock)
+        test_client.post("/api/strategy/init", json={"symbol": "AAPL"})
+
+        response = test_client.get("/api/strategy")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["iv_30d"] == pytest.approx(28.5)
+        assert data["hist_vol"] == pytest.approx(22.3)
+        assert data["iv_hv_ratio"] == pytest.approx(127.9)
+        assert data["dividends_forward"] == pytest.approx(0.96)
+        assert data["dividends_ttm"] == pytest.approx(0.92)
+
+    def test_update_target_date_preserves_vol_fields(
+        self, test_client, mock_ibkr_client
+    ) -> None:
+        """PATCH /api/strategy/target-date preserves vol/dividend fields."""
+        mock_stock = Stock(
+            symbol="AAPL",
+            current_price=150.25,
+            conid=265598,
+            available_expirations=["JAN26", "FEB26"],
+            iv_30d=28.5,
+            dividends_forward=0.96,
+        )
+        mock_ibkr_client.get_stock = AsyncMock(return_value=mock_stock)
+        test_client.post("/api/strategy/init", json={"symbol": "AAPL"})
+
+        response = test_client.patch(
+            "/api/strategy/target-date", json={"target_date": "FEB26"}
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["iv_30d"] == pytest.approx(28.5)
+        assert data["dividends_forward"] == pytest.approx(0.96)
+
+    def test_reset_strategy_preserves_vol_fields(
+        self, test_client, mock_ibkr_client
+    ) -> None:
+        """POST /api/strategy/reset preserves vol/dividend fields."""
+        mock_stock = Stock(
+            symbol="AAPL",
+            current_price=150.25,
+            conid=265598,
+            available_expirations=["JAN26"],
+            iv_30d=28.5,
+            dividends_ttm=0.92,
+        )
+        mock_ibkr_client.get_stock = AsyncMock(return_value=mock_stock)
+        test_client.post("/api/strategy/init", json={"symbol": "AAPL"})
+
+        response = test_client.post("/api/strategy/reset")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["iv_30d"] == pytest.approx(28.5)
+        assert data["dividends_ttm"] == pytest.approx(0.92)

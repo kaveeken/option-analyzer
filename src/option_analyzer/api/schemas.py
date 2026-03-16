@@ -160,6 +160,11 @@ class StrategyInitResponse(BaseModel):
         target_date: Automatically selected target expiration date
         available_expirations: All available expiration months
         session_id: Session ID for subsequent requests
+        iv_30d: 30-day implied volatility % of the underlying (IBKR field 7283)
+        hist_vol: 30-day historical volatility % of the underlying (IBKR field 7087)
+        iv_hv_ratio: IV/HV ratio as a percentage (IBKR field 7084)
+        dividends_forward: Expected dividends per share over the next 12 months (IBKR field 7671)
+        dividends_ttm: Dividends per share paid over the last 12 months (IBKR field 7672)
     """
 
     symbol: str = Field(description="Stock ticker symbol")
@@ -172,6 +177,15 @@ class StrategyInitResponse(BaseModel):
         description="All available expiration months"
     )
     session_id: str = Field(description="Session ID for subsequent requests")
+    iv_30d: float | None = Field(default=None, description="30-day implied volatility %")
+    hist_vol: float | None = Field(default=None, description="30-day historical volatility %")
+    iv_hv_ratio: float | None = Field(default=None, description="IV/HV ratio as percentage")
+    dividends_forward: float | None = Field(
+        default=None, description="Expected dividends per share next 12 months"
+    )
+    dividends_ttm: float | None = Field(
+        default=None, description="Dividends per share last 12 months"
+    )
 
 
 class AddPositionRequest(BaseModel):
@@ -312,6 +326,11 @@ class StrategySummaryResponse(BaseModel):
         available_expirations: Available option expiration months
         stock_quantity: Number of shares in strategy
         positions: List of option positions
+        iv_30d: 30-day implied volatility % of the underlying (IBKR field 7283)
+        hist_vol: 30-day historical volatility % of the underlying (IBKR field 7087)
+        iv_hv_ratio: IV/HV ratio as a percentage (IBKR field 7084)
+        dividends_forward: Expected dividends per share over the next 12 months (IBKR field 7671)
+        dividends_ttm: Dividends per share paid over the last 12 months (IBKR field 7672)
     """
 
     symbol: str = Field(description="Stock ticker symbol", examples=["AAPL"])
@@ -329,6 +348,15 @@ class StrategySummaryResponse(BaseModel):
     )
     positions: list[PositionResponse] = Field(
         description="List of option positions", default_factory=list
+    )
+    iv_30d: float | None = Field(default=None, description="30-day implied volatility %")
+    hist_vol: float | None = Field(default=None, description="30-day historical volatility %")
+    iv_hv_ratio: float | None = Field(default=None, description="IV/HV ratio as percentage")
+    dividends_forward: float | None = Field(
+        default=None, description="Expected dividends per share next 12 months"
+    )
+    dividends_ttm: float | None = Field(
+        default=None, description="Dividends per share last 12 months"
     )
 
 

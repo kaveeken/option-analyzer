@@ -105,6 +105,11 @@ async def initialize_strategy(
         "available_expirations": stock.available_expirations,
         "stock_quantity": 0,  # Initialize stock quantity
         "positions": [],  # Will be populated by position endpoints
+        "iv_30d": stock.iv_30d,
+        "hist_vol": stock.hist_vol,
+        "iv_hv_ratio": stock.iv_hv_ratio,
+        "dividends_forward": stock.dividends_forward,
+        "dividends_ttm": stock.dividends_ttm,
     }
 
     # Set session cookie
@@ -116,6 +121,11 @@ async def initialize_strategy(
         target_date=target_date,
         available_expirations=stock.available_expirations,
         session_id=session.session_id,
+        iv_30d=stock.iv_30d,
+        hist_vol=stock.hist_vol,
+        iv_hv_ratio=stock.iv_hv_ratio,
+        dividends_forward=stock.dividends_forward,
+        dividends_ttm=stock.dividends_ttm,
     )
 
 
@@ -167,6 +177,11 @@ async def get_strategy_summary(
         available_expirations=strategy_data.get("available_expirations", []),
         stock_quantity=strategy_data.get("stock_quantity", 0),
         positions=positions,
+        iv_30d=strategy_data.get("iv_30d"),
+        hist_vol=strategy_data.get("hist_vol"),
+        iv_hv_ratio=strategy_data.get("iv_hv_ratio"),
+        dividends_forward=strategy_data.get("dividends_forward"),
+        dividends_ttm=strategy_data.get("dividends_ttm"),
     )
 
 
@@ -236,6 +251,11 @@ async def update_target_date(
         target_date=request.target_date,
         available_expirations=available_expirations,
         session_id=session.session_id,
+        iv_30d=strategy_data.get("iv_30d"),
+        hist_vol=strategy_data.get("hist_vol"),
+        iv_hv_ratio=strategy_data.get("iv_hv_ratio"),
+        dividends_forward=strategy_data.get("dividends_forward"),
+        dividends_ttm=strategy_data.get("dividends_ttm"),
     )
 
 
@@ -494,6 +514,11 @@ async def reset_strategy(
         available_expirations=available_expirations,
         stock_quantity=0,
         positions=[],
+        iv_30d=strategy_data.get("iv_30d"),
+        hist_vol=strategy_data.get("hist_vol"),
+        iv_hv_ratio=strategy_data.get("iv_hv_ratio"),
+        dividends_forward=strategy_data.get("dividends_forward"),
+        dividends_ttm=strategy_data.get("dividends_ttm"),
     )
 
 
@@ -550,6 +575,11 @@ async def update_stock_quantity(
         available_expirations=strategy_data.get("available_expirations", []),
         stock_quantity=request.stock_quantity,
         positions=positions,
+        iv_30d=strategy_data.get("iv_30d"),
+        hist_vol=strategy_data.get("hist_vol"),
+        iv_hv_ratio=strategy_data.get("iv_hv_ratio"),
+        dividends_forward=strategy_data.get("dividends_forward"),
+        dividends_ttm=strategy_data.get("dividends_ttm"),
     )
 
 
