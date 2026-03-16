@@ -280,8 +280,8 @@ function updateResetButtonVisibility() {
 }
 
 /**
- * Render net greeks strip below positions table
- * Sums quantity * greek * multiplier across all positions, adds stock delta contribution
+ * Render net greeks strip below positions table.
+ * Shows '—' for any greek where data is incomplete (any position missing that value).
  * @param {Array} positions - Array of position objects
  * @param {number} stockQuantity - Number of stock shares
  */
@@ -292,33 +292,30 @@ function renderNetGreeks(positions, stockQuantity) {
     const pos = positions || [];
     const sqty = stockQuantity || 0;
 
-    // Check if any positions have greek data
-    const hasAny = pos.some(p => p.delta != null || p.gamma != null || p.theta != null || p.vega != null);
-    if (!hasAny && sqty === 0) {
+    if (pos.length === 0 && sqty === 0) {
         hide(strip);
         return;
     }
 
-    let netDelta = sqty; // stock delta contribution: 1 per share
-    let netGamma = 0;
-    let netTheta = 0;
-    let netVega = 0;
-    let hasGreeks = sqty !== 0;
+    const mult = p => p.multiplier || 100;
 
-    pos.forEach(p => {
-        const mult = p.multiplier || 100;
-        if (p.delta != null) { netDelta += p.quantity * p.delta * mult; hasGreeks = true; }
-        if (p.gamma != null) { netGamma += p.quantity * p.gamma * mult; hasGreeks = true; }
-        if (p.theta != null) { netTheta += p.quantity * p.theta * mult; hasGreeks = true; }
-        if (p.vega  != null) { netVega  += p.quantity * p.vega  * mult; hasGreeks = true; }
-    });
+    // Only compute a greek if ALL option positions have that value.
+    // A partial sum (e.g. stock delta + unknown option delta) is misleading.
+    const allHave = greek => pos.every(p => p[greek] != null);
 
-    if (!hasGreeks) {
-        hide(strip);
-        return;
-    }
+    const sum = greek => pos.reduce((acc, p) => acc + p.quantity * p[greek] * mult(p), 0);
 
-    const fmtG = v => (v >= 0 ? '+' : '') + formatNumber(v, 2);
+    // Delta: stock contributes 1 per share (always known); options add only if complete.
+    const netDelta = (pos.length === 0 || allHave('delta'))
+        ? sqty + (pos.length > 0 ? sum('delta') : 0)
+        : null;
+
+    // Gamma/Theta/Vega: stock contributes 0; only meaningful when options have data.
+    const netGamma = (pos.length > 0 && allHave('gamma')) ? sum('gamma') : null;
+    const netTheta = (pos.length > 0 && allHave('theta')) ? sum('theta') : null;
+    const netVega  = (pos.length > 0 && allHave('vega'))  ? sum('vega')  : null;
+
+    const fmtG = v => v != null ? (v >= 0 ? '+' : '') + formatNumber(v, 2) : '—';
     setText(getById('net-delta'), fmtG(netDelta));
     setText(getById('net-gamma'), fmtG(netGamma));
     setText(getById('net-theta'), fmtG(netTheta));
