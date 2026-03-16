@@ -315,6 +315,159 @@ input[type="checkbox"] {
     font-weight: var(--font-weight-semibold);
 }
 
+/* Stock Info Groups (volatility, dividends) */
+.stock-info-primary {
+    display: flex;
+    gap: var(--space-lg);
+}
+
+.stock-info-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    flex-wrap: wrap;
+}
+
+.stock-info-divider {
+    width: 1px;
+    height: 1.5rem;
+    background-color: var(--color-border-hover);
+    flex-shrink: 0;
+}
+
+/* Delta cell color-coding */
+.delta-cell {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+/* IV cell */
+.iv-cell {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+/* Expand-row chevron button in strike cell */
+.expand-row-btn {
+    display: inline-block;
+    background: none;
+    border: none;
+    padding: 0 2px;
+    margin-right: 2px;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    line-height: 1;
+    transition: transform var(--transition-fast), color var(--transition-fast);
+    vertical-align: middle;
+}
+
+.expand-row-btn:hover {
+    color: var(--color-primary);
+}
+
+.expand-row-btn.expanded {
+    transform: rotate(90deg);
+    color: var(--color-primary);
+}
+
+.expand-row-btn:focus {
+    outline: none;
+}
+
+/* Greeks subrow */
+.greeks-subrow .greeks-subrow-cell {
+    padding: var(--space-xs) var(--space-md);
+    background-color: var(--color-bg-tertiary);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.greeks-subrow-inner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.greeks-subrow-side {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: var(--font-size-xs);
+    font-family: var(--font-family-mono);
+}
+
+.greeks-subrow-call {
+    flex: 1;
+    justify-content: flex-end;
+}
+
+.greeks-subrow-put {
+    flex: 1;
+    justify-content: flex-start;
+}
+
+.greeks-subrow-spacer {
+    width: 1px;
+    height: 1rem;
+    background-color: var(--color-border-hover);
+    flex-shrink: 0;
+}
+
+.greeks-subrow-side .greek-label {
+    color: var(--color-text-muted);
+    font-weight: var(--font-weight-medium);
+}
+
+.greeks-subrow-side .greek-val {
+    color: var(--color-text-secondary);
+    min-width: 3rem;
+    text-align: right;
+}
+
+.greeks-subrow-put .greek-val {
+    text-align: left;
+}
+
+/* Net Greeks Strip */
+.net-greeks-strip {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    margin-top: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    background-color: var(--color-bg-tertiary);
+    border-radius: var(--border-radius-md);
+    font-size: var(--font-size-sm);
+    flex-wrap: wrap;
+}
+
+.net-greeks-strip .greeks-label {
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-medium);
+    margin-right: var(--space-xs);
+}
+
+.net-greeks-strip .greek-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.net-greeks-strip .greek-sym {
+    color: var(--color-text-muted);
+    font-weight: var(--font-weight-semibold);
+}
+
+.net-greeks-strip #net-delta,
+.net-greeks-strip #net-gamma,
+.net-greeks-strip #net-theta,
+.net-greeks-strip #net-vega {
+    font-family: var(--font-family-mono);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text);
+}
+
 /* Add Position Button */
 .btn-add-position {
     padding: var(--space-xs) var(--space-sm);

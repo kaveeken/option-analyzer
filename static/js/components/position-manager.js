@@ -72,6 +72,11 @@ function initPositionManager() {
             renderStockQuantity(newState.stockQuantity);
         }
 
+        // Update net greeks strip
+        if (changedKeys.includes('positions') || changedKeys.includes('stockQuantity')) {
+            renderNetGreeks(newState.positions, newState.stockQuantity);
+        }
+
         // Show/hide stock quantity section when strategy is initialized
         if (changedKeys.includes('symbol')) {
             const stockQuantityContainer = getById('stock-quantity-container');
@@ -275,6 +280,53 @@ function updateResetButtonVisibility() {
 }
 
 /**
+ * Render net greeks strip below positions table
+ * Sums quantity * greek * multiplier across all positions, adds stock delta contribution
+ * @param {Array} positions - Array of position objects
+ * @param {number} stockQuantity - Number of stock shares
+ */
+function renderNetGreeks(positions, stockQuantity) {
+    const strip = getById('net-greeks-strip');
+    if (!strip) return;
+
+    const pos = positions || [];
+    const sqty = stockQuantity || 0;
+
+    // Check if any positions have greek data
+    const hasAny = pos.some(p => p.delta != null || p.gamma != null || p.theta != null || p.vega != null);
+    if (!hasAny && sqty === 0) {
+        hide(strip);
+        return;
+    }
+
+    let netDelta = sqty; // stock delta contribution: 1 per share
+    let netGamma = 0;
+    let netTheta = 0;
+    let netVega = 0;
+    let hasGreeks = sqty !== 0;
+
+    pos.forEach(p => {
+        const mult = p.multiplier || 100;
+        if (p.delta != null) { netDelta += p.quantity * p.delta * mult; hasGreeks = true; }
+        if (p.gamma != null) { netGamma += p.quantity * p.gamma * mult; hasGreeks = true; }
+        if (p.theta != null) { netTheta += p.quantity * p.theta * mult; hasGreeks = true; }
+        if (p.vega  != null) { netVega  += p.quantity * p.vega  * mult; hasGreeks = true; }
+    });
+
+    if (!hasGreeks) {
+        hide(strip);
+        return;
+    }
+
+    const fmtG = v => (v >= 0 ? '+' : '') + formatNumber(v, 2);
+    setText(getById('net-delta'), fmtG(netDelta));
+    setText(getById('net-gamma'), fmtG(netGamma));
+    setText(getById('net-theta'), fmtG(netTheta));
+    setText(getById('net-vega'),  fmtG(netVega));
+    show(strip);
+}
+
+/**
  * Clear position manager display
  */
 function clearPositionManager() {
@@ -302,6 +354,11 @@ function clearPositionManager() {
 
     if (stockQuantityDisplay) {
         hide(stockQuantityDisplay);
+    }
+
+    const netGreeksStrip = getById('net-greeks-strip');
+    if (netGreeksStrip) {
+        hide(netGreeksStrip);
     }
 
     updateResetButtonVisibility();

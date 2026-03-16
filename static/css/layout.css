@@ -130,7 +130,9 @@
 /* Stock Info Display */
 .stock-info {
     display: flex;
-    gap: var(--space-lg);
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-md);
     margin-top: var(--space-md);
     padding: var(--space-md);
     background-color: var(--color-bg-tertiary);

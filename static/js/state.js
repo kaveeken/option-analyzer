@@ -19,6 +19,11 @@ class AppState {
             conid: null,
             availableExpirations: [],
             targetDate: null,
+            iv_30d: null,
+            hist_vol: null,
+            iv_hv_ratio: null,
+            dividends_forward: null,
+            dividends_ttm: null,
 
             // Option chain data
             optionChain: null, // { expiration, calls: [], puts: [] }
@@ -135,6 +140,11 @@ class AppState {
             isLoading: false,
             loadingMessage: '',
             error: null,
+            iv_30d: null,
+            hist_vol: null,
+            iv_hv_ratio: null,
+            dividends_forward: null,
+            dividends_ttm: null,
         });
     }
 
@@ -180,6 +190,11 @@ class AppState {
             stockQuantity: 0,
             optionChain: null,
             analysis: null,
+            iv_30d: data.iv_30d ?? null,
+            hist_vol: data.hist_vol ?? null,
+            iv_hv_ratio: data.iv_hv_ratio ?? null,
+            dividends_forward: data.dividends_forward ?? null,
+            dividends_ttm: data.dividends_ttm ?? null,
         });
     }
 

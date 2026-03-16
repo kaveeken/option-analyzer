@@ -61,7 +61,8 @@ function initSymbolInput() {
 
     // Subscribe to state changes to update UI
     state.subscribe((newState, changedKeys) => {
-        if (changedKeys.includes('symbol') || changedKeys.includes('currentPrice')) {
+        const stockKeys = ['symbol', 'currentPrice', 'iv_30d', 'hist_vol', 'iv_hv_ratio', 'dividends_forward', 'dividends_ttm'];
+        if (stockKeys.some(k => changedKeys.includes(k))) {
             if (newState.symbol) {
                 renderStockInfo(newState);
             }
@@ -78,7 +79,7 @@ function initSymbolInput() {
 
 /**
  * Render stock information display
- * @param {Object} data - Stock data with symbol and current_price
+ * @param {Object} data - Stock data (API response or state object)
  */
 function renderStockInfo(data) {
     const stockInfo = getById('stock-info');
@@ -89,11 +90,42 @@ function renderStockInfo(data) {
         return;
     }
 
-    // Update symbol and price
-    setText(stockSymbol, data.symbol);
-    setText(stockPrice, formatCurrency(data.current_price || data.currentPrice));
+    // Support both API snake_case and state camelCase keys
+    const price = data.current_price ?? data.currentPrice;
+    const iv30d = data.iv_30d;
+    const histVol = data.hist_vol;
+    const ivHv = data.iv_hv_ratio;
+    const divFwd = data.dividends_forward;
+    const divTtm = data.dividends_ttm;
 
-    // Show stock info box
+    setText(stockSymbol, data.symbol);
+    setText(stockPrice, formatCurrency(price));
+
+    // Volatility group
+    const volGroup = getById('stock-vol-group');
+    if (volGroup && (iv30d != null || histVol != null || ivHv != null)) {
+        const fmt = v => v != null ? formatNumber(v, 1) + '%' : '—';
+        setText(getById('stock-iv30d'), fmt(iv30d));
+        setText(getById('stock-histvol'), fmt(histVol));
+        setText(getById('stock-ivhv'), fmt(ivHv));
+        show(volGroup);
+    } else if (volGroup) {
+        hide(volGroup);
+    }
+
+    // Dividend group
+    const divGroup = getById('stock-div-group');
+    if (divGroup && (divFwd != null || divTtm != null)) {
+        const fmtDiv = v => v != null ? '$' + formatNumber(v, 2) : '—';
+        setText(getById('stock-div-fwd'), fmtDiv(divFwd));
+        setText(getById('stock-div-ttm'), fmtDiv(divTtm));
+        const yield_ = (divFwd != null && price) ? formatNumber((divFwd / price) * 100, 2) + '%' : '—';
+        setText(getById('stock-div-yield'), yield_);
+        show(divGroup);
+    } else if (divGroup) {
+        hide(divGroup);
+    }
+
     show(stockInfo);
 }
 

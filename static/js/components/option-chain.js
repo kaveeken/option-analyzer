@@ -119,43 +119,144 @@ function renderOptionChainTable(optionChain) {
         return;
     }
 
-    // Clear existing rows
     clearChildren(tableBody);
 
-    // Merge calls and puts by strike
     const merged = mergeOptionsByStrike(optionChain.calls, optionChain.puts);
 
-    // Render each row
     merged.forEach(row => {
         const tr = createElement('tr');
 
-        // Call columns
+        // Call columns: Bid | Ask | Δ | IV% | Add
         if (row.call) {
             tr.appendChild(createPriceCell(row.call.bid));
             tr.appendChild(createPriceCell(row.call.ask));
+            tr.appendChild(createDeltaCell(row.call.delta, 'C'));
+            tr.appendChild(createIVCell(row.call.implied_volatility));
             tr.appendChild(createActionCell(row.call, 'C'));
         } else {
-            tr.appendChild(createElement('td', {}, '-'));
-            tr.appendChild(createElement('td', {}, '-'));
-            tr.appendChild(createElement('td', {}, '-'));
+            for (let i = 0; i < 5; i++) tr.appendChild(createElement('td', {}, '—'));
         }
 
-        // Strike column
+        // Strike column (with expand chevron)
         tr.appendChild(createStrikeCell(row.strike));
 
-        // Put columns
+        // Put columns: Add | Δ | IV% | Bid | Ask
         if (row.put) {
             tr.appendChild(createActionCell(row.put, 'P'));
+            tr.appendChild(createDeltaCell(row.put.delta, 'P'));
+            tr.appendChild(createIVCell(row.put.implied_volatility));
             tr.appendChild(createPriceCell(row.put.bid));
             tr.appendChild(createPriceCell(row.put.ask));
         } else {
-            tr.appendChild(createElement('td', {}, '-'));
-            tr.appendChild(createElement('td', {}, '-'));
-            tr.appendChild(createElement('td', {}, '-'));
+            for (let i = 0; i < 5; i++) tr.appendChild(createElement('td', {}, '—'));
         }
 
         tableBody.appendChild(tr);
+
+        // Expandable subrow for Gamma/Theta/Vega (hidden by default)
+        const hasGreeks = (row.call && (row.call.gamma != null || row.call.theta != null || row.call.vega != null)) ||
+                          (row.put  && (row.put.gamma  != null || row.put.theta  != null || row.put.vega  != null));
+        if (hasGreeks) {
+            const subrow = createGreeksSubrow(row.call, row.put);
+            subrow.classList.add('hidden');
+            tableBody.appendChild(subrow);
+
+            // Wire up the chevron button in the strike cell to toggle subrow
+            const chevron = tr.querySelector('.expand-row-btn');
+            if (chevron) {
+                on(chevron, 'click', (e) => {
+                    e.stopPropagation();
+                    const expanded = !subrow.classList.contains('hidden');
+                    if (expanded) {
+                        subrow.classList.add('hidden');
+                        chevron.textContent = '›';
+                        chevron.classList.remove('expanded');
+                    } else {
+                        subrow.classList.remove('hidden');
+                        chevron.textContent = '›';
+                        chevron.classList.add('expanded');
+                    }
+                });
+            }
+        }
     });
+}
+
+/**
+ * Create delta cell with color gradient based on ITM depth
+ * @param {number|null} delta - Delta value
+ * @param {string} right - 'C' or 'P'
+ * @returns {HTMLElement} Table cell
+ */
+function createDeltaCell(delta, right) {
+    if (delta == null) {
+        return createElement('td', { class: 'delta-cell' }, '—');
+    }
+    const td = createElement('td', { class: 'delta-cell' }, formatNumber(delta, 2));
+    // Color by ITM depth: calls positive (green), puts negative (red), ATM near 0 = neutral
+    const abs = Math.abs(delta);
+    if (right === 'C') {
+        const intensity = Math.min(1, abs * 2); // 0.5 delta = full color
+        td.style.color = `rgb(${Math.round(22 + (1 - intensity) * 50)}, ${Math.round(163 - intensity * 40)}, ${Math.round(74 - intensity * 20)})`;
+    } else {
+        const intensity = Math.min(1, abs * 2);
+        td.style.color = `rgb(${Math.round(220 - intensity * 20)}, ${Math.round(38 + (1 - intensity) * 40)}, ${Math.round(38)})`;
+    }
+    return td;
+}
+
+/**
+ * Create implied volatility cell
+ * @param {number|null} iv - Implied volatility percentage
+ * @returns {HTMLElement} Table cell
+ */
+function createIVCell(iv) {
+    const value = iv != null ? formatNumber(iv, 1) + '%' : '—';
+    return createElement('td', { class: 'iv-cell' }, value);
+}
+
+/**
+ * Create expandable subrow showing Gamma, Theta, Vega for call and put
+ * @param {Object|null} call - Call contract
+ * @param {Object|null} put - Put contract
+ * @returns {HTMLElement} Table row
+ */
+function createGreeksSubrow(call, put) {
+    const tr = createElement('tr', { class: 'greeks-subrow' });
+    const td = createElement('td', { colspan: '11', class: 'greeks-subrow-cell' });
+
+    const fmt = v => v != null ? formatNumber(v, 4) : '—';
+
+    const inner = createElement('div', { class: 'greeks-subrow-inner' });
+
+    if (call) {
+        const callDiv = createElement('div', { class: 'greeks-subrow-side greeks-subrow-call' });
+        callDiv.appendChild(createElement('span', { class: 'greek-label' }, 'Γ'));
+        callDiv.appendChild(createElement('span', { class: 'greek-val' }, fmt(call.gamma)));
+        callDiv.appendChild(createElement('span', { class: 'greek-label' }, 'Θ'));
+        callDiv.appendChild(createElement('span', { class: 'greek-val' }, fmt(call.theta)));
+        callDiv.appendChild(createElement('span', { class: 'greek-label' }, 'V'));
+        callDiv.appendChild(createElement('span', { class: 'greek-val' }, fmt(call.vega)));
+        inner.appendChild(callDiv);
+    }
+
+    const spacer = createElement('div', { class: 'greeks-subrow-spacer' });
+    inner.appendChild(spacer);
+
+    if (put) {
+        const putDiv = createElement('div', { class: 'greeks-subrow-side greeks-subrow-put' });
+        putDiv.appendChild(createElement('span', { class: 'greek-label' }, 'Γ'));
+        putDiv.appendChild(createElement('span', { class: 'greek-val' }, fmt(put.gamma)));
+        putDiv.appendChild(createElement('span', { class: 'greek-label' }, 'Θ'));
+        putDiv.appendChild(createElement('span', { class: 'greek-val' }, fmt(put.theta)));
+        putDiv.appendChild(createElement('span', { class: 'greek-label' }, 'V'));
+        putDiv.appendChild(createElement('span', { class: 'greek-val' }, fmt(put.vega)));
+        inner.appendChild(putDiv);
+    }
+
+    td.appendChild(inner);
+    tr.appendChild(td);
+    return tr;
 }
 
 /**
@@ -171,12 +272,16 @@ function createPriceCell(price) {
 }
 
 /**
- * Create strike price cell
+ * Create strike price cell with expand chevron
  * @param {number} strike - Strike price
  * @returns {HTMLElement} Table cell with strike-price class
  */
 function createStrikeCell(strike) {
-    return createElement('td', { class: 'strike-price' }, formatStrike(strike));
+    const td = createElement('td', { class: 'strike-price' });
+    const chevron = createElement('button', { class: 'expand-row-btn', title: 'Show Γ Θ V' }, '›');
+    td.appendChild(chevron);
+    td.appendChild(document.createTextNode(formatStrike(strike)));
+    return td;
 }
 
 /**

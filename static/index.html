@@ -41,13 +41,45 @@
 
                 <!-- Stock Info Display -->
                 <div id="stock-info" class="stock-info hidden">
-                    <div class="stock-info-item">
-                        <span class="label">Symbol:</span>
-                        <span id="stock-symbol" class="value"></span>
+                    <div class="stock-info-primary">
+                        <div class="stock-info-item">
+                            <span class="label">Symbol:</span>
+                            <span id="stock-symbol" class="value"></span>
+                        </div>
+                        <div class="stock-info-item">
+                            <span class="label">Price:</span>
+                            <span id="stock-price" class="value"></span>
+                        </div>
                     </div>
-                    <div class="stock-info-item">
-                        <span class="label">Current Price:</span>
-                        <span id="stock-price" class="value"></span>
+                    <div id="stock-vol-group" class="stock-info-group hidden">
+                        <div class="stock-info-divider"></div>
+                        <div class="stock-info-item">
+                            <span class="label">IV 30d:</span>
+                            <span id="stock-iv30d" class="value"></span>
+                        </div>
+                        <div class="stock-info-item">
+                            <span class="label">Hist Vol:</span>
+                            <span id="stock-histvol" class="value"></span>
+                        </div>
+                        <div class="stock-info-item">
+                            <span class="label">IV/HV:</span>
+                            <span id="stock-ivhv" class="value"></span>
+                        </div>
+                    </div>
+                    <div id="stock-div-group" class="stock-info-group hidden">
+                        <div class="stock-info-divider"></div>
+                        <div class="stock-info-item">
+                            <span class="label">Div Fwd:</span>
+                            <span id="stock-div-fwd" class="value"></span>
+                        </div>
+                        <div class="stock-info-item">
+                            <span class="label">Div TTM:</span>
+                            <span id="stock-div-ttm" class="value"></span>
+                        </div>
+                        <div class="stock-info-item">
+                            <span class="label">Yield:</span>
+                            <span id="stock-div-yield" class="value"></span>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -70,16 +102,20 @@
                     <table id="option-chain-table" class="option-chain-table">
                         <thead>
                             <tr>
-                                <th colspan="3" class="calls-header">Calls</th>
+                                <th colspan="5" class="calls-header">Calls</th>
                                 <th class="strike-header">Strike</th>
-                                <th colspan="3" class="puts-header">Puts</th>
+                                <th colspan="5" class="puts-header">Puts</th>
                             </tr>
                             <tr>
                                 <th>Bid</th>
                                 <th>Ask</th>
+                                <th>Δ</th>
+                                <th>IV%</th>
                                 <th>Add</th>
                                 <th>Price</th>
                                 <th>Add</th>
+                                <th>Δ</th>
+                                <th>IV%</th>
                                 <th>Bid</th>
                                 <th>Ask</th>
                             </tr>
@@ -139,6 +175,14 @@
                             <!-- Rows populated by JavaScript -->
                         </tbody>
                     </table>
+                    <!-- Net Greeks Strip -->
+                    <div id="net-greeks-strip" class="net-greeks-strip hidden">
+                        <span class="greeks-label">Net Greeks:</span>
+                        <span class="greek-item"><span class="greek-sym">Δ</span> <span id="net-delta">—</span></span>
+                        <span class="greek-item"><span class="greek-sym">Γ</span> <span id="net-gamma">—</span></span>
+                        <span class="greek-item"><span class="greek-sym">Θ</span> <span id="net-theta">—</span></span>
+                        <span class="greek-item"><span class="greek-sym">V</span> <span id="net-vega">—</span></span>
+                    </div>
                 </div>
             </section>
 
