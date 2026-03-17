@@ -1,0 +1,34 @@
+# Dow Jones Industrial Average (30 components)
+# Last verified: 2025 (NVDA replaced INTC Nov 2024, AMZN replaced WBA Feb 2024)
+# Source: https://www.djindexes.com/
+
+AAPL
+AMGN
+AMZN
+AXP
+BA
+CAT
+CRM
+CSCO
+CVX
+DIS
+GS
+HD
+HON
+IBM
+JNJ
+JPM
+KO
+MCD
+MMM
+MRK
+MSFT
+NKE
+NVDA
+PG
+SHW
+TRV
+UNH
+V
+VZ
+WMT

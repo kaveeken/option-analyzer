@@ -1,0 +1,18 @@
+[Unit]
+Description=Option Analyzer — daily stock snapshot collector timer
+Requires=option-analyzer-collect.service
+
+[Timer]
+# 22:00 UTC = 18:00 ET (2h after US close) = 23:00 CET (after EU close)
+OnCalendar=Mon-Fri *-*-* 22:00:00
+Unit=option-analyzer-collect.service
+
+# Catch up on a missed run if the machine was off at collection time
+Persistent=true
+
+# Randomize start within a 5-minute window to avoid thundering-herd if
+# running on multiple machines
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

@@ -73,6 +73,10 @@ AGENTS.md
 # Generated plot files (created by analysis)
 static/plots/*.png
 
+# Daily snapshot data (SQLite DB and conid cache)
+data/snapshots.db
+data/conid_cache.json
+
 # Example/test files
 example_*.png
 generate_example_*.py
