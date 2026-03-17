@@ -94,6 +94,16 @@ function initOptionChain() {
 
     // Subscribe to state changes
     state.subscribe((newState, changedKeys) => {
+        if (changedKeys.includes('chainLoading')) {
+            const indicator = getById('chain-loading-indicator');
+            if (indicator) {
+                newState.chainLoading ? show(indicator) : hide(indicator);
+            }
+            if (newState.chainLoading) {
+                show(optionChainSection);
+            }
+        }
+
         // Render table when option chain is loaded
         if (changedKeys.includes('optionChain')) {
             if (newState.optionChain) {
