@@ -114,6 +114,11 @@ class TestParseFloatField:
         assert _parse_float_field("-0.05") == pytest.approx(-0.05)
         assert _parse_float_field(-0.05) == pytest.approx(-0.05)
 
+    def test_string_with_percent_suffix(self) -> None:
+        """IBKR returns volatility fields (7283, 7087, 7084) with a '%' suffix."""
+        assert _parse_float_field("24.239%") == pytest.approx(24.239)
+        assert _parse_float_field("101.4%") == pytest.approx(101.4)
+
 
 # ============================================================================
 # Domain Model: Stock vol/dividend fields

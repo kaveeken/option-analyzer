@@ -13,9 +13,10 @@ def _parse_float_field(value: Any) -> float | None:
     """
     Parse a float field from an IBKR market data snapshot.
 
-    IBKR returns some fields as strings, sometimes with a prefix character:
+    IBKR returns some fields as strings, sometimes with affixes:
       - 'C' prefix = previous day's closing price
       - 'H' prefix = trading halted
+      - '%' suffix = percentage value (volatility fields 7283, 7087, 7084)
 
     Returns None for None input or unparseable strings.
     """
@@ -24,7 +25,7 @@ def _parse_float_field(value: Any) -> float | None:
     if isinstance(value, (int, float)):
         return float(value)
     if isinstance(value, str):
-        stripped = value.lstrip("CH")
+        stripped = value.lstrip("CH").rstrip("%")
         try:
             return float(stripped)
         except (ValueError, AttributeError):
