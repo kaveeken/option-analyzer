@@ -62,9 +62,6 @@ CREATE INDEX IF NOT EXISTS idx_snapshots_symbol_date ON stock_snapshots (symbol,
 # Fields: price + vol metrics + dividends (same as IBKRClient._STOCK_FIELDS)
 _SNAPSHOT_FIELDS = "31,84,86,7283,7087,7084,7671,7672"
 _BATCH_SIZE = 9  # conids per market snapshot request
-_TICKLE_INTERVAL = 30  # seconds between keepalive pings
-
-
 async def check_auth(ibkr: IBKRClient) -> None:
     """
     Verify the IBKR portal session is authenticated.
@@ -90,22 +87,6 @@ async def check_auth(ibkr: IBKRClient) -> None:
         raise SystemExit(1)
 
     logger.info("IBKR portal authenticated OK")
-
-
-async def tickle_loop(ibkr: IBKRClient) -> None:
-    """
-    Background task: ping /tickle every _TICKLE_INTERVAL seconds to prevent
-    the IBKR portal session from timing out during a long collection run.
-    """
-    while True:
-        await asyncio.sleep(_TICKLE_INTERVAL)
-        try:
-            await ibkr.get_request("tickle")
-            logger.debug("Tickle OK")
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            logger.warning(f"Tickle failed: {e}")
 
 
 def load_symbols(symbols_dir: Path) -> list[str]:
@@ -261,33 +242,23 @@ async def collect(
         # Verify portal is up and authenticated before doing any real work
         await check_auth(ibkr)
 
-        # Keep the portal session alive for the duration of the collection run
-        tickle_task = asyncio.create_task(tickle_loop(ibkr))
+        # Phase 1: Resolve conids
+        conid_cache, failed = await resolve_conids(ibkr, symbols, conid_cache)
+        if failed:
+            logger.warning(f"Failed to resolve {len(failed)} symbols: {failed}")
 
-        try:
-            # Phase 1: Resolve conids
-            conid_cache, failed = await resolve_conids(ibkr, symbols, conid_cache)
-            if failed:
-                logger.warning(f"Failed to resolve {len(failed)} symbols: {failed}")
+        if not dry_run:
+            save_conid_cache(cache_path, conid_cache)
 
-            if not dry_run:
-                save_conid_cache(cache_path, conid_cache)
+        resolved = {s: conid_cache[s] for s in symbols if s in conid_cache}
+        logger.info(f"Proceeding with {len(resolved)}/{len(symbols)} resolved symbols")
 
-            resolved = {s: conid_cache[s] for s in symbols if s in conid_cache}
-            logger.info(f"Proceeding with {len(resolved)}/{len(symbols)} resolved symbols")
+        # Phase 2: Batch IV/dividend snapshots
+        conids = list(resolved.values())
+        iv_data = await fetch_iv_snapshots(ibkr, conids)
 
-            # Phase 2: Batch IV/dividend snapshots
-            conids = list(resolved.values())
-            iv_data = await fetch_iv_snapshots(ibkr, conids)
-
-            # Phase 3: Concurrent OHLC fetches
-            ohlc_data = await fetch_all_ohlc(ibkr, resolved)
-        finally:
-            tickle_task.cancel()
-            try:
-                await tickle_task
-            except asyncio.CancelledError:
-                pass
+        # Phase 3: Concurrent OHLC fetches
+        ohlc_data = await fetch_all_ohlc(ibkr, resolved)
 
     # Phase 4: Build rows
     today_str = today.isoformat()
