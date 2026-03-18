@@ -62,6 +62,50 @@ CREATE INDEX IF NOT EXISTS idx_snapshots_symbol_date ON stock_snapshots (symbol,
 # Fields: price + vol metrics + dividends (same as IBKRClient._STOCK_FIELDS)
 _SNAPSHOT_FIELDS = "31,84,86,7283,7087,7084,7671,7672"
 _BATCH_SIZE = 9  # conids per market snapshot request
+_TICKLE_INTERVAL = 30  # seconds between keepalive pings
+
+
+async def check_auth(ibkr: IBKRClient) -> None:
+    """
+    Verify the IBKR portal session is authenticated.
+
+    Raises SystemExit if not authenticated — the collector cannot
+    re-authenticate (that requires a browser login).
+    """
+    try:
+        status = await ibkr.get_request("iserver/auth/status")
+        authenticated = status.get("authenticated", False)
+        competing = status.get("competing", False)
+    except Exception as e:
+        logger.error(f"Could not reach IBKR portal: {e}")
+        raise SystemExit(1)
+
+    if competing:
+        logger.warning("IBKR portal reports a competing session — data may be unreliable")
+    if not authenticated:
+        logger.error(
+            "IBKR portal is not authenticated. "
+            "Log in via the Client Portal web UI, then retry."
+        )
+        raise SystemExit(1)
+
+    logger.info("IBKR portal authenticated OK")
+
+
+async def tickle_loop(ibkr: IBKRClient) -> None:
+    """
+    Background task: ping /tickle every _TICKLE_INTERVAL seconds to prevent
+    the IBKR portal session from timing out during a long collection run.
+    """
+    while True:
+        await asyncio.sleep(_TICKLE_INTERVAL)
+        try:
+            await ibkr.get_request("tickle")
+            logger.debug("Tickle OK")
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.warning(f"Tickle failed: {e}")
 
 
 def load_symbols(symbols_dir: Path) -> list[str]:
@@ -214,23 +258,36 @@ async def collect(
     rate_limiter = RateLimiter(max_requests=10, per_seconds=1)
 
     async with IBKRClient(settings, ibkr_cache, rate_limiter) as ibkr:
-        # Phase 1: Resolve conids
-        conid_cache, failed = await resolve_conids(ibkr, symbols, conid_cache)
-        if failed:
-            logger.warning(f"Failed to resolve {len(failed)} symbols: {failed}")
+        # Verify portal is up and authenticated before doing any real work
+        await check_auth(ibkr)
 
-        if not dry_run:
-            save_conid_cache(cache_path, conid_cache)
+        # Keep the portal session alive for the duration of the collection run
+        tickle_task = asyncio.create_task(tickle_loop(ibkr))
 
-        resolved = {s: conid_cache[s] for s in symbols if s in conid_cache}
-        logger.info(f"Proceeding with {len(resolved)}/{len(symbols)} resolved symbols")
+        try:
+            # Phase 1: Resolve conids
+            conid_cache, failed = await resolve_conids(ibkr, symbols, conid_cache)
+            if failed:
+                logger.warning(f"Failed to resolve {len(failed)} symbols: {failed}")
 
-        # Phase 2: Batch IV/dividend snapshots
-        conids = list(resolved.values())
-        iv_data = await fetch_iv_snapshots(ibkr, conids)
+            if not dry_run:
+                save_conid_cache(cache_path, conid_cache)
 
-        # Phase 3: Concurrent OHLC fetches
-        ohlc_data = await fetch_all_ohlc(ibkr, resolved)
+            resolved = {s: conid_cache[s] for s in symbols if s in conid_cache}
+            logger.info(f"Proceeding with {len(resolved)}/{len(symbols)} resolved symbols")
+
+            # Phase 2: Batch IV/dividend snapshots
+            conids = list(resolved.values())
+            iv_data = await fetch_iv_snapshots(ibkr, conids)
+
+            # Phase 3: Concurrent OHLC fetches
+            ohlc_data = await fetch_all_ohlc(ibkr, resolved)
+        finally:
+            tickle_task.cancel()
+            try:
+                await tickle_task
+            except asyncio.CancelledError:
+                pass
 
     # Phase 4: Build rows
     today_str = today.isoformat()
