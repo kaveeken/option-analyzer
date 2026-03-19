@@ -21,7 +21,6 @@ import logging
 import math
 import sqlite3
 import statistics
-from datetime import date
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -158,12 +157,16 @@ def compute_signals(
     """
     Compute IV/RV signals for every symbol present in today's snapshot.
 
-    Looks back up to `lookback` prior trading days (not including today).
-    For price_rv, fetches lookback + rv_window prior closes to build a full
-    rolling RV history for z-scoring.
+    Looks back up to `lookback` prior trading days (not including the latest
+    snapshot date).  For price_rv, fetches lookback + rv_window prior closes
+    to build a full rolling RV history for z-scoring.
     Returns the number of rows produced.
     """
-    target_str = date.today().isoformat()
+    row = conn.execute("SELECT MAX(date) FROM stock_snapshots").fetchone()
+    if not row or not row[0]:
+        logger.warning("No snapshot data found in database")
+        return 0
+    target_str = row[0]
 
     rows = conn.execute(
         "SELECT symbol, iv_30d, hist_vol, close FROM stock_snapshots WHERE date = ?",
