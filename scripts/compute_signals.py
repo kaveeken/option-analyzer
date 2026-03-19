@@ -10,7 +10,6 @@ Run after collect_snapshots.py — either manually or via a systemd timer.
 
 Usage:
     python scripts/compute_signals.py
-    python scripts/compute_signals.py --date 2026-03-14
     python scripts/compute_signals.py --lookback 60 --spike-threshold 1.5
     python scripts/compute_signals.py --db /path/to/snapshots.db --dry-run
 """
@@ -109,18 +108,17 @@ def _classify(zscore: float | None, spike_threshold: float) -> str | None:
 
 def compute_signals(
     conn: sqlite3.Connection,
-    target_date: date,
     lookback: int,
     spike_threshold: float,
     dry_run: bool,
 ) -> int:
     """
-    Compute IV/RV signals for every symbol on target_date.
+    Compute IV/RV signals for every symbol present in today's snapshot.
 
-    Looks back up to `lookback` prior trading days (not including target_date).
+    Looks back up to `lookback` prior trading days (not including today).
     Returns the number of rows produced.
     """
-    target_str = target_date.isoformat()
+    target_str = date.today().isoformat()
 
     # Fetch all symbols that have data for target_date
     rows = conn.execute(
@@ -235,13 +233,6 @@ def main() -> None:
         help=f"SQLite database path (default: {DEFAULT_DB})",
     )
     parser.add_argument(
-        "--date",
-        type=date.fromisoformat,
-        default=date.today(),
-        metavar="YYYY-MM-DD",
-        help="Target date to compute signals for (default: today)",
-    )
-    parser.add_argument(
         "--lookback",
         type=int,
         default=60,
@@ -288,7 +279,6 @@ def main() -> None:
     try:
         n = compute_signals(
             conn=conn,
-            target_date=args.date,
             lookback=args.lookback,
             spike_threshold=args.spike_threshold,
             dry_run=args.dry_run,

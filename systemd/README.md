@@ -38,10 +38,6 @@ systemctl --user list-timers
 # Dry run (no DB writes)
 python scripts/collect_snapshots.py --dry-run
 
-# Collect for a specific past date, then compute signals
-python scripts/collect_snapshots.py --date 2026-03-14
-python scripts/compute_signals.py   --date 2026-03-14
-
 # Compute signals only (e.g. to re-run with different parameters)
 python scripts/compute_signals.py --lookback 60 --spike-threshold 1.5
 
