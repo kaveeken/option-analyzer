@@ -349,7 +349,7 @@ def compute_signals(
                 f"  {symbol:8s}  "
                 f"IV={iv_today} ({iv_sig})  "
                 f"RV(ibkr)={rv_today} ({rv_sig})  "
-                f"RV(price)={price_rv_today:.1f if price_rv_today else 'n/a'} ({price_rv_sig})"
+                f"RV(price)={f'{price_rv_today:.1f}' if price_rv_today is not None else 'n/a'} ({price_rv_sig})"
             )
 
     if dry_run:
