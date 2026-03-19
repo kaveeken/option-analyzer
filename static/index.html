@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>Δ</text></svg>">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Option Returns Analyzer</title>
     <link rel="stylesheet" href="/static/css/theme.css">
@@ -9,6 +10,11 @@
     <link rel="stylesheet" href="/static/css/components.css">
 </head>
 <body>
+    <!-- Nav -->
+    <nav style="display:flex;justify-content:flex-end;padding:6px 24px;background:#fff;border-bottom:1px solid var(--color-border);font-size:var(--font-size-sm);">
+        <a href="/signals" style="color:var(--color-secondary);text-decoration:none;" onmouseover="this.style.color='var(--color-primary)'" onmouseout="this.style.color='var(--color-secondary)'">Volatility Signals →</a>
+    </nav>
+
     <!-- Error Banner -->
     <div id="error-banner" class="error-banner hidden">
         <span id="error-message"></span>

@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>Δ</text></svg>">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volatility Signals</title>
+    <link rel="stylesheet" href="/static/css/theme.css">
+    <style>
+        /* ── Page layout ── */
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-md) var(--space-xl);
+            background: var(--color-bg);
+            border-bottom: var(--border-width) solid var(--color-border);
+        }
+        .page-header h1 {
+            font-size: var(--font-size-xl);
+            font-weight: var(--font-weight-semibold);
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+        .nav-link {
+            font-size: var(--font-size-sm);
+            color: var(--color-secondary);
+            text-decoration: none;
+        }
+        .nav-link:hover { color: var(--color-primary); }
+
+        .content {
+            max-width: 1300px;
+            margin: 0 auto;
+            padding: var(--space-lg) var(--space-xl);
+        }
+
+        /* ── Freshness banner ── */
+        .freshness-bar {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            padding: var(--space-sm) var(--space-md);
+            border-radius: var(--border-radius-md);
+            font-size: var(--font-size-sm);
+            margin-bottom: var(--space-lg);
+            font-weight: var(--font-weight-medium);
+        }
+        .freshness-bar.fresh   { background: #dcfce7; color: #15803d; }
+        .freshness-bar.recent  { background: #fef9c3; color: #a16207; }
+        .freshness-bar.stale   { background: #fee2e2; color: #b91c1c; }
+        .freshness-bar.unknown { background: var(--color-bg-tertiary); color: var(--color-text-muted); }
+        .freshness-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .fresh  .freshness-dot { background: #16a34a; }
+        .recent .freshness-dot { background: #ca8a04; }
+        .stale  .freshness-dot { background: #dc2626; }
+
+        /* ── Filter strip ── */
+        .filter-strip {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-md);
+            flex-wrap: wrap;
+        }
+        .filter-label {
+            font-size: var(--font-size-sm);
+            color: var(--color-text-secondary);
+            font-weight: var(--font-weight-medium);
+            margin-right: var(--space-xs);
+        }
+        .filter-btn {
+            padding: 4px 12px;
+            border-radius: 999px;
+            border: var(--border-width) solid var(--color-border);
+            background: var(--color-bg);
+            font-size: var(--font-size-sm);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            color: var(--color-text-secondary);
+        }
+        .filter-btn:hover { border-color: var(--color-border-hover); color: var(--color-text); }
+        .filter-btn.active {
+            border-color: transparent;
+            color: #fff;
+        }
+        .filter-btn[data-level="spike"].active    { background: #dc2626; }
+        .filter-btn[data-level="elevated"].active { background: #ea580c; }
+        .filter-btn[data-level="neutral"].active  { background: #64748b; }
+        .filter-btn[data-level="depressed"].active{ background: #0d9488; }
+        .filter-btn[data-level="trough"].active   { background: #2563eb; }
+        .filter-btn[data-level="all"].active      { background: var(--color-primary); }
+
+        .filter-divider {
+            width: 1px; height: 20px;
+            background: var(--color-border);
+            margin: 0 var(--space-xs);
+        }
+
+        .result-count {
+            margin-left: auto;
+            font-size: var(--font-size-sm);
+            color: var(--color-text-muted);
+        }
+
+        /* ── Table ── */
+        .table-wrap {
+            overflow-x: auto;
+            border: var(--border-width) solid var(--color-border);
+            border-radius: var(--border-radius-lg);
+            background: var(--color-bg);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: var(--font-size-sm);
+        }
+        thead th {
+            padding: var(--space-sm) var(--space-md);
+            text-align: left;
+            font-weight: var(--font-weight-semibold);
+            color: var(--color-text-secondary);
+            background: var(--color-bg-tertiary);
+            border-bottom: var(--border-width) solid var(--color-border);
+            white-space: nowrap;
+            user-select: none;
+            cursor: pointer;
+        }
+        thead th:hover { color: var(--color-text); }
+        thead th.sorted-asc::after  { content: " ↑"; }
+        thead th.sorted-desc::after { content: " ↓"; }
+
+        tbody tr:hover { background: var(--color-bg-secondary); }
+        tbody tr + tr td { border-top: var(--border-width) solid var(--color-border); }
+        td {
+            padding: var(--space-sm) var(--space-md);
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+
+        /* Symbol cell */
+        .symbol-link {
+            font-weight: var(--font-weight-semibold);
+            color: var(--color-primary);
+            text-decoration: none;
+            font-family: var(--font-family-mono);
+        }
+        .symbol-link:hover { text-decoration: underline; }
+
+        /* Value+signal cell */
+        .signal-cell { display: flex; align-items: center; gap: var(--space-sm); }
+        .val { font-family: var(--font-family-mono); color: var(--color-text); }
+        .val.muted { color: var(--color-text-muted); }
+
+        /* Signal badge */
+        .badge {
+            display: inline-block;
+            padding: 2px 7px;
+            border-radius: 999px;
+            font-size: 0.7rem;
+            font-weight: var(--font-weight-semibold);
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+        .badge-spike     { background: #fee2e2; color: #b91c1c; }
+        .badge-elevated  { background: #ffedd5; color: #c2410c; }
+        .badge-neutral   { background: #f1f5f9; color: #64748b; }
+        .badge-depressed { background: #ccfbf1; color: #0f766e; }
+        .badge-trough    { background: #dbeafe; color: #1d4ed8; }
+        .badge-null      { background: #f1f5f9; color: #cbd5e1; }
+
+        /* z-score sub-text */
+        .zscore { font-size: 0.7rem; color: var(--color-text-muted); font-family: var(--font-family-mono); }
+
+        /* Lookback pill */
+        .lookback-n { font-size: 0.7rem; color: var(--color-text-muted); }
+
+        /* Loading / empty states */
+        .state-row td {
+            text-align: center;
+            padding: var(--space-2xl);
+            color: var(--color-text-muted);
+        }
+        .spinner-inline {
+            display: inline-block;
+            width: 16px; height: 16px;
+            border: 2px solid var(--color-border);
+            border-top-color: var(--color-primary);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            vertical-align: middle;
+            margin-right: var(--space-xs);
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="page-header">
+        <h1>Volatility Signals</h1>
+        <a href="/" class="nav-link">← Option Analyzer</a>
+    </div>
+
+    <div class="content">
+        <div id="freshness-bar" class="freshness-bar unknown">
+            <span class="freshness-dot"></span>
+            <span id="freshness-text">Loading...</span>
+        </div>
+
+        <div class="filter-strip">
+            <span class="filter-label">Filter:</span>
+            <button class="filter-btn active" data-level="all">All</button>
+            <button class="filter-btn" data-level="spike">Spike</button>
+            <button class="filter-btn" data-level="elevated">Elevated</button>
+            <button class="filter-btn" data-level="neutral">Neutral</button>
+            <button class="filter-btn" data-level="depressed">Depressed</button>
+            <button class="filter-btn" data-level="trough">Trough</button>
+            <div class="filter-divider"></div>
+            <button class="filter-btn" data-level="extremes">Extremes only</button>
+            <span class="result-count" id="result-count"></span>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th data-col="symbol">Symbol</th>
+                        <th data-col="iv">IV 30d</th>
+                        <th data-col="rv">RV (IBKR)</th>
+                        <th data-col="price_rv">Price RV</th>
+                        <th data-col="max_z" class="sorted-desc">Strongest z</th>
+                        <th data-col="lookback">Lookback n</th>
+                    </tr>
+                </thead>
+                <tbody id="signals-tbody">
+                    <tr class="state-row">
+                        <td colspan="6">
+                            <span class="spinner-inline"></span> Loading signals...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+    (() => {
+        // ── State ──────────────────────────────────────────────────────────
+        let allRows = [];
+        let activeFilter = 'all';   // 'all' | 'extremes' | signal level
+        let sortCol = 'max_z';
+        let sortDir = 'desc';       // 'asc' | 'desc'
+
+        // ── Fetch ──────────────────────────────────────────────────────────
+        async function load() {
+            try {
+                const res = await fetch('/api/signals');
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    showError(err.detail || `HTTP ${res.status}`);
+                    return;
+                }
+                const data = await res.json();
+                allRows = data.signals || [];
+                renderFreshness(data.data_date, data.age_days);
+                renderTable();
+            } catch (e) {
+                showError(e.message);
+            }
+        }
+
+        // ── Freshness bar ──────────────────────────────────────────────────
+        function renderFreshness(dataDate, ageDays) {
+            const bar = document.getElementById('freshness-bar');
+            const txt = document.getElementById('freshness-text');
+            if (dataDate == null) {
+                txt.textContent = 'No signal data available';
+                return;
+            }
+            const label = ageDays === 0 ? 'today'
+                        : ageDays === 1 ? 'yesterday'
+                        : `${ageDays} days ago`;
+            txt.textContent = `Data from ${dataDate} (${label})`;
+            bar.className = 'freshness-bar ' + (
+                ageDays === 0 ? 'fresh' :
+                ageDays === 1 ? 'recent' : 'stale'
+            );
+        }
+
+        // ── Filter ─────────────────────────────────────────────────────────
+        function matchesFilter(row) {
+            if (activeFilter === 'all') return true;
+            const sigs = [row.iv_signal, row.rv_signal, row.price_rv_signal];
+            if (activeFilter === 'extremes') return sigs.some(s => s === 'spike' || s === 'trough');
+            return sigs.some(s => s === activeFilter);
+        }
+
+        // ── Sort ───────────────────────────────────────────────────────────
+        const SORT_KEY = {
+            symbol:   r => r.symbol,
+            iv:       r => r.iv_zscore   ?? -Infinity,
+            rv:       r => r.rv_zscore   ?? -Infinity,
+            price_rv: r => r.price_rv_zscore ?? -Infinity,
+            max_z:    r => r.max_abs_zscore  ?? -Infinity,
+            lookback: r => Math.max(r.iv_lookback_n ?? 0, r.rv_lookback_n ?? 0, r.price_rv_lookback_n ?? 0),
+        };
+
+        function sorted(rows) {
+            const key = SORT_KEY[sortCol] || SORT_KEY.max_z;
+            return [...rows].sort((a, b) => {
+                const va = key(a), vb = key(b);
+                if (va < vb) return sortDir === 'asc' ? -1 : 1;
+                if (va > vb) return sortDir === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+
+        // ── Render ─────────────────────────────────────────────────────────
+        function badge(signal) {
+            if (!signal) return `<span class="badge badge-null">—</span>`;
+            return `<span class="badge badge-${signal}">${signal}</span>`;
+        }
+
+        function fmt(v, decimals = 1) {
+            return v != null ? v.toFixed(decimals) : '—';
+        }
+
+        function signalCell(value, zscore, signal) {
+            const valStr = value != null ? `<span class="val">${fmt(value)}%</span>` : `<span class="val muted">—</span>`;
+            const zStr   = zscore != null ? `<span class="zscore">z=${fmt(zscore, 2)}</span>` : '';
+            return `<div class="signal-cell">${valStr}${badge(signal)}${zStr}</div>`;
+        }
+
+        function renderTable() {
+            const filtered = sorted(allRows.filter(matchesFilter));
+            document.getElementById('result-count').textContent =
+                `${filtered.length} of ${allRows.length} symbols`;
+
+            const tbody = document.getElementById('signals-tbody');
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr class="state-row"><td colspan="6">No symbols match the current filter.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(r => {
+                const maxZ = r.max_abs_zscore != null ? fmt(r.max_abs_zscore, 2) : '—';
+                const nMin = Math.max(r.iv_lookback_n ?? 0, r.rv_lookback_n ?? 0, r.price_rv_lookback_n ?? 0);
+                const nStr = nMin > 0 ? `<span class="lookback-n">${nMin}d</span>` : `<span class="lookback-n muted">—</span>`;
+                return `<tr>
+                    <td><a class="symbol-link" href="/?symbol=${r.symbol}" target="_blank">${r.symbol}</a></td>
+                    <td>${signalCell(r.iv_30d, r.iv_zscore, r.iv_signal)}</td>
+                    <td>${signalCell(r.hist_vol, r.rv_zscore, r.rv_signal)}</td>
+                    <td>${signalCell(r.price_rv, r.price_rv_zscore, r.price_rv_signal)}</td>
+                    <td><span class="val mono">${maxZ}</span></td>
+                    <td>${nStr}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function showError(msg) {
+            document.getElementById('signals-tbody').innerHTML =
+                `<tr class="state-row"><td colspan="6">Error: ${msg}</td></tr>`;
+            document.getElementById('freshness-text').textContent = 'Failed to load data';
+        }
+
+        // ── Filter buttons ─────────────────────────────────────────────────
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                activeFilter = btn.dataset.level;
+                renderTable();
+            });
+        });
+
+        // ── Sort headers ───────────────────────────────────────────────────
+        document.querySelectorAll('thead th[data-col]').forEach(th => {
+            th.addEventListener('click', () => {
+                const col = th.dataset.col;
+                if (sortCol === col) {
+                    sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    sortCol = col;
+                    sortDir = col === 'symbol' ? 'asc' : 'desc';
+                }
+                document.querySelectorAll('thead th').forEach(h => {
+                    h.classList.remove('sorted-asc', 'sorted-desc');
+                });
+                th.classList.add(sortDir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+                renderTable();
+            });
+        });
+
+        // ── Init ───────────────────────────────────────────────────────────
+        load();
+    })();
+    </script>
+</body>
+</html>
