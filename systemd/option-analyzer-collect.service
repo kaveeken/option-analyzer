@@ -10,6 +10,8 @@ Type=oneshot
 WorkingDirectory=/var/home/kris/proj/option-analyzer
 ExecStart=/var/home/kris/proj/option-analyzer/.venv/bin/python \
     /var/home/kris/proj/option-analyzer/scripts/collect_snapshots.py
+ExecStart=/var/home/kris/proj/option-analyzer/.venv/bin/python \
+    /var/home/kris/proj/option-analyzer/scripts/compute_signals.py
 
 # Load IBKR credentials and settings from .env
 EnvironmentFile=/var/home/kris/proj/option-analyzer/.env

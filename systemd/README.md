@@ -38,8 +38,12 @@ systemctl --user list-timers
 # Dry run (no DB writes)
 python scripts/collect_snapshots.py --dry-run
 
-# Collect for a specific past date
+# Collect for a specific past date, then compute signals
 python scripts/collect_snapshots.py --date 2026-03-14
+python scripts/compute_signals.py   --date 2026-03-14
+
+# Compute signals only (e.g. to re-run with different parameters)
+python scripts/compute_signals.py --lookback 60 --spike-threshold 1.5
 
 # Run the systemd service immediately (no wait for timer)
 sudo systemctl start option-analyzer-collect.service
@@ -60,3 +64,28 @@ starting with `#` are comments. All files are merged and deduplicated.
 
 Conids are cached in `data/conid_cache.json` after the first successful
 resolution — IBKR symbol lookups only happen once per symbol.
+
+## Signal computation
+
+After each collection, `compute_signals.py` reads the snapshot DB and writes
+a `volatility_signals` table with per-symbol z-scores and percentile ranks for
+IV (`iv_30d`) and realized vol (`hist_vol`).
+
+Signal labels: **spike** (z ≥ 3σ) · **elevated** (z ≥ 1.5σ) · **neutral** ·
+**depressed** (z ≤ −1.5σ) · **trough** (z ≤ −3σ).
+
+Thresholds and lookback window are configurable:
+
+```bash
+python scripts/compute_signals.py --lookback 60 --spike-threshold 1.5
+```
+
+Query spikes across all symbols on a date:
+
+```sql
+SELECT symbol, iv_30d, iv_zscore, iv_signal, hist_vol, rv_zscore, rv_signal
+FROM volatility_signals
+WHERE date = '2026-03-18'
+  AND (iv_signal IN ('spike','trough') OR rv_signal IN ('spike','trough'))
+ORDER BY abs(iv_zscore) DESC;
+```
