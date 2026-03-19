@@ -17,13 +17,33 @@ from pydantic import BaseModel
 router = APIRouter(prefix="/api/signals", tags=["signals"])
 
 _DB_PATH = Path("data/snapshots.db")
+_SYMBOLS_DIR = Path("scripts/symbols")
 
 SIGNAL_LEVELS = {"spike", "elevated", "neutral", "depressed", "trough"}
+
+
+def _load_symbol_lists() -> dict[str, list[str]]:
+    """
+    Return {symbol: [list_name, ...]} built from scripts/symbols/*.txt.
+    List names are the filenames without extension (e.g. "sp500", "aex").
+    A symbol may appear in multiple lists.
+    """
+    membership: dict[str, list[str]] = {}
+    if not _SYMBOLS_DIR.exists():
+        return membership
+    for f in sorted(_SYMBOLS_DIR.glob("*.txt")):
+        list_name = f.stem
+        for raw in f.read_text().splitlines():
+            symbol = raw.strip()
+            if symbol and not symbol.startswith("#"):
+                membership.setdefault(symbol.upper(), []).append(list_name)
+    return membership
 
 
 class SignalRow(BaseModel):
     symbol: str
     date: str
+    lists: list[str]
     iv_30d: float | None
     hist_vol: float | None
     price_rv: float | None
@@ -46,6 +66,7 @@ class SignalRow(BaseModel):
 class SignalsResponse(BaseModel):
     data_date: str | None
     age_days: int | None
+    available_lists: list[str]
     signals: list[SignalRow]
 
 
@@ -61,9 +82,13 @@ async def get_signals(
         description=(
             "Comma-separated signal levels to include "
             "(spike, elevated, neutral, depressed, trough). "
-            "Matches any of iv_signal, rv_signal, price_rv_signal. "
-            "Omit to return all."
+            "Matches any of iv_signal, rv_signal, price_rv_signal."
         ),
+    ),
+    list_: str | None = Query(
+        default=None,
+        alias="list",
+        description="Comma-separated symbol list names to filter by (e.g. sp500,aex).",
     ),
 ) -> SignalsResponse:
     """
@@ -90,13 +115,20 @@ async def get_signals(
                 detail=f"Unknown signal level(s): {unknown}. Valid: {SIGNAL_LEVELS}",
             )
 
+    # Parse list filter
+    requested_lists: set[str] | None = None
+    if list_:
+        requested_lists = {s.strip().lower() for s in list_.split(",")}
+
+    symbol_lists = _load_symbol_lists()
+    available_lists = sorted({lst for lsts in symbol_lists.values() for lst in lsts})
+
     conn = sqlite3.connect(_DB_PATH)
     conn.row_factory = sqlite3.Row
     try:
-        # Find latest date with signal data
         row = conn.execute("SELECT MAX(date) FROM volatility_signals").fetchone()
         if not row or not row[0]:
-            return SignalsResponse(data_date=None, age_days=None, signals=[])
+            return SignalsResponse(data_date=None, age_days=None, available_lists=available_lists, signals=[])
 
         data_date: str = row[0]
         age_days = (date.today() - date.fromisoformat(data_date)).days
@@ -122,17 +154,25 @@ async def get_signals(
     signals: list[SignalRow] = []
     for r in rows:
         d: dict[str, Any] = dict(r)
+        symbol = d["symbol"]
+        row_lists = symbol_lists.get(symbol, [])
+
+        # Apply list filter
+        if requested_lists is not None:
+            if not (set(row_lists) & requested_lists):
+                continue
+
+        # Apply signal level filter
         iv_sig = d.get("iv_signal")
         rv_sig = d.get("rv_signal")
         prv_sig = d.get("price_rv_signal")
-
-        # Apply signal level filter: include row if any of the three signals match
         if requested_levels is not None:
             if not ({iv_sig, rv_sig, prv_sig} & requested_levels):
                 continue
 
         signals.append(SignalRow(
             **d,
+            lists=row_lists,
             max_abs_zscore=_max_abs(
                 d.get("iv_zscore"),
                 d.get("rv_zscore"),
@@ -140,7 +180,11 @@ async def get_signals(
             ),
         ))
 
-    # Sort by max abs z-score descending (None last)
     signals.sort(key=lambda s: s.max_abs_zscore or 0.0, reverse=True)
 
-    return SignalsResponse(data_date=data_date, age_days=age_days, signals=signals)
+    return SignalsResponse(
+        data_date=data_date,
+        age_days=age_days,
+        available_lists=available_lists,
+        signals=signals,
+    )

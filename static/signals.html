@@ -95,6 +95,8 @@
         .filter-btn[data-level="depressed"].active{ background: #0d9488; }
         .filter-btn[data-level="trough"].active   { background: #2563eb; }
         .filter-btn[data-level="all"].active      { background: var(--color-primary); }
+        .filter-btn[data-level="extremes"].active { background: #7c3aed; }
+        .list-btn.active { background: #0f172a; border-color: transparent; color: #fff; }
 
         .filter-divider {
             width: 1px; height: 20px;
@@ -107,6 +109,22 @@
             font-size: var(--font-size-sm);
             color: var(--color-text-muted);
         }
+
+        /* list membership tags in table */
+        .list-tag {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: var(--border-radius-sm);
+            font-size: 0.65rem;
+            font-weight: var(--font-weight-semibold);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: var(--color-bg-tertiary);
+            color: var(--color-text-secondary);
+            border: var(--border-width) solid var(--color-border);
+            cursor: pointer;
+        }
+        .list-tag:hover { border-color: var(--color-border-hover); color: var(--color-text); }
 
         /* ── Table ── */
         .table-wrap {
@@ -212,7 +230,7 @@
         </div>
 
         <div class="filter-strip">
-            <span class="filter-label">Filter:</span>
+            <span class="filter-label">Signal:</span>
             <button class="filter-btn active" data-level="all">All</button>
             <button class="filter-btn" data-level="spike">Spike</button>
             <button class="filter-btn" data-level="elevated">Elevated</button>
@@ -221,6 +239,11 @@
             <button class="filter-btn" data-level="trough">Trough</button>
             <div class="filter-divider"></div>
             <button class="filter-btn" data-level="extremes">Extremes only</button>
+        </div>
+        <div class="filter-strip" id="list-filter-strip" style="display:none">
+            <span class="filter-label">List:</span>
+            <button class="list-btn active" data-list="all">All</button>
+            <!-- list buttons injected here by JS -->
             <span class="result-count" id="result-count"></span>
         </div>
 
@@ -234,6 +257,7 @@
                         <th data-col="price_rv">Price RV</th>
                         <th data-col="max_z" class="sorted-desc">Strongest z</th>
                         <th data-col="lookback">Lookback n</th>
+                        <th>Lists</th>
                     </tr>
                 </thead>
                 <tbody id="signals-tbody">
@@ -251,9 +275,10 @@
     (() => {
         // ── State ──────────────────────────────────────────────────────────
         let allRows = [];
-        let activeFilter = 'all';   // 'all' | 'extremes' | signal level
+        let activeSignalFilter = 'all';   // 'all' | 'extremes' | signal level
+        let activeListFilter   = 'all';   // 'all' | list name
         let sortCol = 'max_z';
-        let sortDir = 'desc';       // 'asc' | 'desc'
+        let sortDir = 'desc';
 
         // ── Fetch ──────────────────────────────────────────────────────────
         async function load() {
@@ -267,6 +292,7 @@
                 const data = await res.json();
                 allRows = data.signals || [];
                 renderFreshness(data.data_date, data.age_days);
+                renderListButtons(data.available_lists || []);
                 renderTable();
             } catch (e) {
                 showError(e.message);
@@ -277,35 +303,55 @@
         function renderFreshness(dataDate, ageDays) {
             const bar = document.getElementById('freshness-bar');
             const txt = document.getElementById('freshness-text');
-            if (dataDate == null) {
-                txt.textContent = 'No signal data available';
-                return;
-            }
-            const label = ageDays === 0 ? 'today'
-                        : ageDays === 1 ? 'yesterday'
-                        : `${ageDays} days ago`;
+            if (dataDate == null) { txt.textContent = 'No signal data available'; return; }
+            const label = ageDays === 0 ? 'today' : ageDays === 1 ? 'yesterday' : `${ageDays} days ago`;
             txt.textContent = `Data from ${dataDate} (${label})`;
-            bar.className = 'freshness-bar ' + (
-                ageDays === 0 ? 'fresh' :
-                ageDays === 1 ? 'recent' : 'stale'
-            );
+            bar.className = 'freshness-bar ' + (ageDays === 0 ? 'fresh' : ageDays === 1 ? 'recent' : 'stale');
         }
 
-        // ── Filter ─────────────────────────────────────────────────────────
-        function matchesFilter(row) {
-            if (activeFilter === 'all') return true;
+        // ── List filter buttons (built from API response) ──────────────────
+        function renderListButtons(lists) {
+            if (lists.length === 0) return;
+            const strip = document.getElementById('list-filter-strip');
+            strip.style.display = 'flex';
+            lists.forEach(name => {
+                const btn = document.createElement('button');
+                btn.className = 'filter-btn list-btn';
+                btn.dataset.list = name;
+                btn.textContent = name;
+                btn.addEventListener('click', () => setListFilter(name, btn));
+                // insert before the result-count span
+                strip.insertBefore(btn, document.getElementById('result-count'));
+            });
+        }
+
+        function setListFilter(name, btn) {
+            document.querySelectorAll('.list-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            activeListFilter = name;
+            renderTable();
+        }
+
+        // ── Filters ────────────────────────────────────────────────────────
+        function matchesSignalFilter(row) {
+            if (activeSignalFilter === 'all') return true;
             const sigs = [row.iv_signal, row.rv_signal, row.price_rv_signal];
-            if (activeFilter === 'extremes') return sigs.some(s => s === 'spike' || s === 'trough');
-            return sigs.some(s => s === activeFilter);
+            if (activeSignalFilter === 'extremes') return sigs.some(s => s === 'spike' || s === 'trough');
+            return sigs.some(s => s === activeSignalFilter);
+        }
+
+        function matchesListFilter(row) {
+            if (activeListFilter === 'all') return true;
+            return (row.lists || []).includes(activeListFilter);
         }
 
         // ── Sort ───────────────────────────────────────────────────────────
         const SORT_KEY = {
             symbol:   r => r.symbol,
-            iv:       r => r.iv_zscore   ?? -Infinity,
-            rv:       r => r.rv_zscore   ?? -Infinity,
-            price_rv: r => r.price_rv_zscore ?? -Infinity,
-            max_z:    r => r.max_abs_zscore  ?? -Infinity,
+            iv:       r => r.iv_zscore        ?? -Infinity,
+            rv:       r => r.rv_zscore        ?? -Infinity,
+            price_rv: r => r.price_rv_zscore  ?? -Infinity,
+            max_z:    r => r.max_abs_zscore   ?? -Infinity,
             lookback: r => Math.max(r.iv_lookback_n ?? 0, r.rv_lookback_n ?? 0, r.price_rv_lookback_n ?? 0),
         };
 
@@ -319,7 +365,7 @@
             });
         }
 
-        // ── Render ─────────────────────────────────────────────────────────
+        // ── Render helpers ─────────────────────────────────────────────────
         function badge(signal) {
             if (!signal) return `<span class="badge badge-null">—</span>`;
             return `<span class="badge badge-${signal}">${signal}</span>`;
@@ -335,44 +381,63 @@
             return `<div class="signal-cell">${valStr}${badge(signal)}${zStr}</div>`;
         }
 
+        function listTags(lists) {
+            if (!lists || lists.length === 0) return '<span class="lookback-n muted">—</span>';
+            return lists.map(l =>
+                `<span class="list-tag" data-list="${l}" title="Filter to ${l}">${l}</span>`
+            ).join(' ');
+        }
+
+        // ── Render table ───────────────────────────────────────────────────
         function renderTable() {
-            const filtered = sorted(allRows.filter(matchesFilter));
+            const filtered = sorted(allRows.filter(r => matchesSignalFilter(r) && matchesListFilter(r)));
             document.getElementById('result-count').textContent =
                 `${filtered.length} of ${allRows.length} symbols`;
 
             const tbody = document.getElementById('signals-tbody');
+            const cols = 7;
             if (filtered.length === 0) {
-                tbody.innerHTML = `<tr class="state-row"><td colspan="6">No symbols match the current filter.</td></tr>`;
+                tbody.innerHTML = `<tr class="state-row"><td colspan="${cols}">No symbols match the current filter.</td></tr>`;
                 return;
             }
 
             tbody.innerHTML = filtered.map(r => {
                 const maxZ = r.max_abs_zscore != null ? fmt(r.max_abs_zscore, 2) : '—';
-                const nMin = Math.max(r.iv_lookback_n ?? 0, r.rv_lookback_n ?? 0, r.price_rv_lookback_n ?? 0);
-                const nStr = nMin > 0 ? `<span class="lookback-n">${nMin}d</span>` : `<span class="lookback-n muted">—</span>`;
+                const nMax = Math.max(r.iv_lookback_n ?? 0, r.rv_lookback_n ?? 0, r.price_rv_lookback_n ?? 0);
+                const nStr = nMax > 0 ? `<span class="lookback-n">${nMax}d</span>` : `<span class="lookback-n muted">—</span>`;
                 return `<tr>
                     <td><a class="symbol-link" href="/?symbol=${r.symbol}" target="_blank">${r.symbol}</a></td>
-                    <td>${signalCell(r.iv_30d, r.iv_zscore, r.iv_signal)}</td>
-                    <td>${signalCell(r.hist_vol, r.rv_zscore, r.rv_signal)}</td>
-                    <td>${signalCell(r.price_rv, r.price_rv_zscore, r.price_rv_signal)}</td>
+                    <td>${signalCell(r.iv_30d,   r.iv_zscore,       r.iv_signal)}</td>
+                    <td>${signalCell(r.hist_vol,  r.rv_zscore,       r.rv_signal)}</td>
+                    <td>${signalCell(r.price_rv,  r.price_rv_zscore, r.price_rv_signal)}</td>
                     <td><span class="val mono">${maxZ}</span></td>
                     <td>${nStr}</td>
+                    <td>${listTags(r.lists)}</td>
                 </tr>`;
             }).join('');
+
+            // clicking a list tag sets the list filter
+            tbody.querySelectorAll('.list-tag').forEach(tag => {
+                tag.addEventListener('click', () => {
+                    const name = tag.dataset.list;
+                    const btn = document.querySelector(`.list-btn[data-list="${name}"]`);
+                    if (btn) setListFilter(name, btn);
+                });
+            });
         }
 
         function showError(msg) {
             document.getElementById('signals-tbody').innerHTML =
-                `<tr class="state-row"><td colspan="6">Error: ${msg}</td></tr>`;
+                `<tr class="state-row"><td colspan="7">Error: ${msg}</td></tr>`;
             document.getElementById('freshness-text').textContent = 'Failed to load data';
         }
 
-        // ── Filter buttons ─────────────────────────────────────────────────
-        document.querySelectorAll('.filter-btn').forEach(btn => {
+        // ── Signal filter buttons ──────────────────────────────────────────
+        document.querySelectorAll('.filter-btn[data-level]').forEach(btn => {
             btn.addEventListener('click', () => {
-                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.filter-btn[data-level]').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                activeFilter = btn.dataset.level;
+                activeSignalFilter = btn.dataset.level;
                 renderTable();
             });
         });
@@ -381,15 +446,10 @@
         document.querySelectorAll('thead th[data-col]').forEach(th => {
             th.addEventListener('click', () => {
                 const col = th.dataset.col;
-                if (sortCol === col) {
-                    sortDir = sortDir === 'asc' ? 'desc' : 'asc';
-                } else {
-                    sortCol = col;
-                    sortDir = col === 'symbol' ? 'asc' : 'desc';
-                }
-                document.querySelectorAll('thead th').forEach(h => {
-                    h.classList.remove('sorted-asc', 'sorted-desc');
-                });
+                sortDir = sortCol === col ? (sortDir === 'asc' ? 'desc' : 'asc')
+                                          : (col === 'symbol' ? 'asc' : 'desc');
+                sortCol = col;
+                document.querySelectorAll('thead th').forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
                 th.classList.add(sortDir === 'asc' ? 'sorted-asc' : 'sorted-desc');
                 renderTable();
             });
