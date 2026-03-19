@@ -8,25 +8,41 @@ signals for:
   - hist_vol — historical vol from IBKR field 7087
   - price_rv — realized vol computed from close-price log returns
 
+The close-price series used for price_rv can come from two sources:
+  - DB (default): accumulated closes stored in stock_snapshots over time
+  - API (--use-api): fresh bar history fetched from IBKR on each run
+
 Run after collect_snapshots.py — either manually or via a systemd timer.
 
 Usage:
     python scripts/compute_signals.py
+    python scripts/compute_signals.py --use-api
     python scripts/compute_signals.py --lookback 60 --rv-window 20 --spike-threshold 1.5
     python scripts/compute_signals.py --db /path/to/snapshots.db --dry-run
 """
 
 import argparse
+import asyncio
+import json
 import logging
 import math
 import sqlite3
 import statistics
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+from option_analyzer.clients.cache import InMemoryCache
+from option_analyzer.clients.ibkr import IBKRClient
+from option_analyzer.config import Settings
+from option_analyzer.utils.rate_limiter import RateLimiter
 
 logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).parent.parent
 DEFAULT_DB = PROJECT_ROOT / "data" / "snapshots.db"
+DEFAULT_CACHE = PROJECT_ROOT / "data" / "conid_cache.json"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS volatility_signals (
@@ -147,19 +163,80 @@ def _classify(zscore: float | None, spike_threshold: float) -> str | None:
     return "neutral"
 
 
+async def fetch_api_closes(
+    symbols: list[str],
+    conid_cache: dict[str, int],
+    lookback: int,
+    rv_window: int,
+) -> dict[str, list[float]]:
+    """
+    Fetch historical daily closes from IBKR for each symbol.
+
+    Requests enough calendar days to cover lookback + rv_window trading days,
+    with a 1.5× buffer for weekends/holidays.  Returns a dict mapping symbol
+    to a list of closes ordered oldest → newest.
+    """
+    trading_days_needed = lookback + rv_window + 5  # small buffer
+    calendar_days = int(trading_days_needed * 1.5)
+    period = f"{calendar_days}d"
+
+    settings = Settings()
+    ibkr_cache = InMemoryCache()
+    rate_limiter = RateLimiter(max_requests=10, per_seconds=1)
+
+    result: dict[str, list[float]] = {}
+
+    async with IBKRClient(settings, ibkr_cache, rate_limiter) as ibkr:
+        # Verify portal is authenticated before any real work
+        try:
+            status = await ibkr.get_request("iserver/auth/status")
+            if not status.get("authenticated", False):
+                logger.error("IBKR portal is not authenticated — cannot fetch API closes")
+                raise SystemExit(1)
+        except SystemExit:
+            raise
+        except Exception as e:
+            logger.error(f"Could not reach IBKR portal: {e}")
+            raise SystemExit(1)
+
+        unknown = [s for s in symbols if s not in conid_cache]
+        if unknown:
+            logger.warning(f"{len(unknown)} symbols not in conid cache, skipping: {unknown[:5]}...")
+
+        for symbol in symbols:
+            conid = conid_cache.get(symbol)
+            if conid is None:
+                continue
+            try:
+                endpoint = f"iserver/marketdata/history?conid={conid}&period={period}&bar=1d"
+                response = await ibkr.get_request(endpoint)
+                bars = response.get("data", []) if isinstance(response, dict) else []
+                closes = [b["c"] for b in bars if b.get("c") is not None]
+                if closes:
+                    result[symbol] = closes
+                else:
+                    logger.warning(f"No closes returned for {symbol}")
+            except Exception as e:
+                logger.warning(f"History fetch failed for {symbol}: {e}")
+
+    logger.info(f"Fetched API closes for {len(result)}/{len(symbols)} symbols")
+    return result
+
+
 def compute_signals(
     conn: sqlite3.Connection,
     lookback: int,
     rv_window: int,
     spike_threshold: float,
     dry_run: bool,
+    api_closes: dict[str, list[float]] | None = None,
 ) -> int:
     """
-    Compute IV/RV signals for every symbol present in today's snapshot.
+    Compute IV/RV signals for every symbol present in the latest snapshot.
 
-    Looks back up to `lookback` prior trading days (not including the latest
-    snapshot date).  For price_rv, fetches lookback + rv_window prior closes
-    to build a full rolling RV history for z-scoring.
+    iv_30d and hist_vol signals always read from the snapshot DB.
+    price_rv uses api_closes (symbol → close series oldest→newest) when
+    provided, otherwise falls back to accumulated closes in stock_snapshots.
     Returns the number of rows produced.
     """
     row = conn.execute("SELECT MAX(date) FROM stock_snapshots").fetchone()
@@ -214,27 +291,27 @@ def compute_signals(
             rv_z = rv_p = rv_sig = None
 
         # --- price_rv: realized vol from close-price log returns ---
-        # Need lookback prior RV values (each of which requires rv_window closes
-        # before it), plus today's close.  Total closes needed:
-        #   today + lookback prior RV values + rv_window lead-in = lookback + rv_window + 1
-        # We fetch lookback + rv_window prior closes (ascending) then append today's.
-        close_rows = conn.execute(
-            """
-            SELECT close FROM stock_snapshots
-            WHERE symbol = ? AND date < ? AND close IS NOT NULL
-            ORDER BY date DESC
-            LIMIT ?
-            """,
-            (symbol, target_str, lookback + rv_window),
-        ).fetchall()
-
-        prior_closes = [r[0] for r in reversed(close_rows)]  # oldest → newest
+        if api_closes is not None:
+            # API path: full series already includes today's close
+            all_closes = api_closes.get(symbol, [])
+        else:
+            # DB path: accumulate prior closes and append today's
+            close_rows = conn.execute(
+                """
+                SELECT close FROM stock_snapshots
+                WHERE symbol = ? AND date < ? AND close IS NOT NULL
+                ORDER BY date DESC
+                LIMIT ?
+                """,
+                (symbol, target_str, lookback + rv_window),
+            ).fetchall()
+            prior_closes = [r[0] for r in reversed(close_rows)]
+            all_closes = prior_closes + ([close_today] if close_today is not None else [])
 
         price_rv_z = price_rv_p = price_rv_sig = price_rv_today = None
         price_rv_lookback_n = 0
 
-        if close_today is not None and len(prior_closes) >= rv_window:
-            all_closes = prior_closes + [close_today]
+        if len(all_closes) >= rv_window + 1:
             rv_series = _rolling_rv(all_closes, rv_window)
 
             price_rv_today = rv_series[-1]  # RV ending on today's close
@@ -320,6 +397,21 @@ def main() -> None:
         help=f"SQLite database path (default: {DEFAULT_DB})",
     )
     parser.add_argument(
+        "--use-api",
+        action="store_true",
+        help=(
+            "Fetch bar history from IBKR API for price_rv instead of reading "
+            "accumulated closes from the DB. Requires a live IBKR portal session."
+        ),
+    )
+    parser.add_argument(
+        "--cache",
+        type=Path,
+        default=DEFAULT_CACHE,
+        metavar="PATH",
+        help=f"Conid cache JSON used with --use-api (default: {DEFAULT_CACHE})",
+    )
+    parser.add_argument(
         "--lookback",
         type=int,
         default=60,
@@ -366,6 +458,22 @@ def main() -> None:
         logger.error(f"Database not found: {args.db}")
         raise SystemExit(1)
 
+    api_closes: dict[str, list[float]] | None = None
+    if args.use_api:
+        if not args.cache.exists():
+            logger.error(f"Conid cache not found: {args.cache} — run collect_snapshots.py first")
+            raise SystemExit(1)
+        conid_cache: dict[str, int] = json.loads(args.cache.read_text())
+        symbols = list(conid_cache.keys())
+        api_closes = asyncio.run(
+            fetch_api_closes(
+                symbols=symbols,
+                conid_cache=conid_cache,
+                lookback=args.lookback,
+                rv_window=args.rv_window,
+            )
+        )
+
     conn = sqlite3.connect(args.db)
     conn.executescript(SCHEMA)
     for migration in SCHEMA_MIGRATIONS:
@@ -382,6 +490,7 @@ def main() -> None:
             rv_window=args.rv_window,
             spike_threshold=args.spike_threshold,
             dry_run=args.dry_run,
+            api_closes=api_closes,
         )
     finally:
         conn.close()
