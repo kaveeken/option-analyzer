@@ -11,8 +11,9 @@
 </head>
 <body>
     <!-- Nav -->
-    <nav style="display:flex;justify-content:flex-end;padding:6px 24px;background:#fff;border-bottom:1px solid var(--color-border);font-size:var(--font-size-sm);">
+    <nav style="display:flex;justify-content:flex-end;gap:24px;padding:6px 24px;background:#fff;border-bottom:1px solid var(--color-border);font-size:var(--font-size-sm);">
         <a href="/signals" style="color:var(--color-secondary);text-decoration:none;" onmouseover="this.style.color='var(--color-primary)'" onmouseout="this.style.color='var(--color-secondary)'">Volatility Signals →</a>
+        <a href="/optimize" id="optimize-nav-link" style="color:var(--color-secondary);text-decoration:none;" onmouseover="this.style.color='var(--color-primary)'" onmouseout="this.style.color='var(--color-secondary)'">Optimizer →</a>
     </nav>
 
     <!-- Error Banner -->
@@ -275,5 +276,13 @@
     <script src="/static/js/components/position-manager.js"></script>
     <script src="/static/js/components/analysis.js"></script>
     <script src="/static/js/app.js"></script>
+    <script>
+        // Keep Optimizer nav link in sync with the loaded symbol
+        state.subscribe((s, keys) => {
+            if (keys.includes('symbol') && s.symbol) {
+                document.getElementById('optimize-nav-link').href = '/optimize?symbol=' + encodeURIComponent(s.symbol);
+            }
+        });
+    </script>
 </body>
 </html>
