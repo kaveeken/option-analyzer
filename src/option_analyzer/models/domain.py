@@ -330,10 +330,10 @@ class Strategy(BaseModel):
             Call this before performing expensive calculations like Monte Carlo
             simulations to fail fast with clear error messages.
         """
-        if not self.option_positions:
+        if not self.option_positions and self.stock_quantity == 0:
             raise ValidationError(
-                "No option positions in strategy. Add at least one option position before analyzing.",
-                code="NO_OPTION_POSITIONS",
+                "No positions in strategy. Add at least one option position or a stock position before analyzing.",
+                code="NO_POSITIONS",
             )
 
         if not self.validate_single_expiration():

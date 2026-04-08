@@ -498,10 +498,15 @@ class TestStrategy:
         strategy.validate_for_analysis()
 
     def test_validate_for_analysis_empty_strategy(self, sample_stock: Stock) -> None:
-        """Test that empty strategy (no positions) raises ValidationError."""
-        strategy = Strategy(stock=sample_stock, option_positions=[])
-        with pytest.raises(AppValidationError, match="No option positions"):
+        """Test that strategy with no positions at all raises ValidationError."""
+        strategy = Strategy(stock=sample_stock, stock_quantity=0, option_positions=[])
+        with pytest.raises(AppValidationError, match="No positions"):
             strategy.validate_for_analysis()
+
+    def test_validate_for_analysis_stock_only_is_valid(self, sample_stock: Stock) -> None:
+        """Test that a stock-only strategy (no options) passes validation."""
+        strategy = Strategy(stock=sample_stock, stock_quantity=100, option_positions=[])
+        strategy.validate_for_analysis()  # should not raise
 
     def test_validate_for_analysis_mixed_expiration(self, sample_stock: Stock) -> None:
         """Test that mixed expiration dates raise MixedExpirationError."""
