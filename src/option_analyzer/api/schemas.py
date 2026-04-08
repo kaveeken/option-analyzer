@@ -401,6 +401,48 @@ class UpdateTargetDateRequest(BaseModel):
     )
 
 
+class OptimizeRequest(BaseModel):
+    """Request to run strategy optimizer on an option chain."""
+
+    symbol: str = Field(description="Stock ticker symbol", examples=["AAPL"], min_length=1, max_length=10)
+    expiration: str = Field(description="Target expiration month", examples=["JAN26"])
+    max_loss_limit: float | None = Field(default=None, description="Skip strategies with max_loss worse than -limit", examples=[500.0])
+    top_n: int = Field(default=20, description="Maximum results to return", ge=1, le=200)
+    include_1leg: bool = Field(default=True, description="Include single-leg positions")
+    include_2leg: bool = Field(default=True, description="Include all 2-leg combinations")
+    include_named_multileg: bool = Field(default=True, description="Include iron condors, butterflies, etc.")
+    include_stock_legs: bool = Field(default=True, description="Include stock + 0-2 option leg strategies")
+    stock_qty: int = Field(default=100, description="Share count for stock-leg strategies", ge=1)
+
+
+class OptimizeResultRow(BaseModel):
+    """A single ranked strategy candidate from the optimizer."""
+
+    rank: int = Field(description="1-based rank by ev_to_risk")
+    description: str = Field(description="Human-readable strategy name", examples=["Bull Call Spread 490/510"])
+    ev_to_risk: float = Field(description="EV divided by abs(max_loss)")
+    ev: float = Field(description="Expected value in dollars")
+    pop: float = Field(description="Probability of profit (0.0-1.0)")
+    max_loss: float | None = Field(description="Maximum possible loss in dollars")
+    max_gain: float | None = Field(description="Maximum possible gain in dollars")
+    net_premium: float = Field(description="Net credit (positive) or debit (negative)")
+    loss_unbounded: bool = Field(description="True when theoretical downside is unlimited")
+
+
+class OptimizeResponse(BaseModel):
+    """Results from strategy optimizer."""
+
+    symbol: str
+    expiration: str
+    results: list[OptimizeResultRow]
+
+
+class OptimizeChartResponse(BaseModel):
+    """Chart URL for a single optimizer result."""
+
+    plot_url: str = Field(description="URL path to the generated chart")
+
+
 class UpdateStockQuantityRequest(BaseModel):
     """
     Request to update the stock quantity in the strategy.

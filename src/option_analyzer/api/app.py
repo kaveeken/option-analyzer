@@ -19,7 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from ..config import get_settings
 from ..services.session import get_session_service
 from .middleware import error_handler_middleware
-from .routes import health, signals, stocks, strategy
+from .routes import health, optimize, signals, stocks, strategy
 
 # Background task control
 _cleanup_task: asyncio.Task | None = None
@@ -217,6 +217,7 @@ def create_app() -> FastAPI:
     app.include_router(stocks.router)
     app.include_router(strategy.router)
     app.include_router(signals.router)
+    app.include_router(optimize.router)
 
     # Mount static files for serving generated plots
     app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -231,5 +232,10 @@ def create_app() -> FastAPI:
     async def signals_page():
         """Serve the volatility signals frontend."""
         return FileResponse("static/signals.html")
+
+    @app.get("/optimize")
+    async def optimize_page():
+        """Serve the strategy optimizer frontend."""
+        return FileResponse("static/optimize.html")
 
     return app
