@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>Δ</text></svg>">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strategy Optimizer</title>
+    <link rel="stylesheet" href="/static/css/theme.css">
+    <style>
+        /* ── Layout ── */
+        body { margin: 0; font-family: var(--font-family); color: var(--color-text); background: var(--color-bg-secondary); }
+
+        .page-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: var(--space-md) var(--space-xl);
+            background: var(--color-bg);
+            border-bottom: var(--border-width) solid var(--color-border);
+        }
+        .page-header h1 { font-size: var(--font-size-xl); font-weight: var(--font-weight-semibold); margin: 0; }
+        .nav-links { display: flex; gap: var(--space-md); }
+        .nav-link { font-size: var(--font-size-sm); color: var(--color-secondary); text-decoration: none; }
+        .nav-link:hover { color: var(--color-primary); }
+
+        .content { max-width: 1600px; margin: 0 auto; padding: var(--space-lg) var(--space-xl); }
+
+        /* ── Controls ── */
+        .controls-card {
+            background: var(--color-bg);
+            border: var(--border-width) solid var(--color-border);
+            border-radius: var(--border-radius-lg);
+            padding: var(--space-lg);
+            margin-bottom: var(--space-lg);
+        }
+        .controls-row { display: flex; align-items: flex-end; gap: var(--space-md); flex-wrap: wrap; }
+        .field { display: flex; flex-direction: column; gap: var(--space-xs); }
+        .field label { font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-secondary); }
+        .field input, .field select {
+            padding: 6px var(--space-sm);
+            border: var(--border-width) solid var(--color-border);
+            border-radius: var(--border-radius-md);
+            font-size: var(--font-size-sm);
+            background: var(--color-bg);
+            color: var(--color-text);
+            min-width: 100px;
+        }
+        .field input:focus, .field select:focus { outline: none; border-color: var(--color-primary); }
+        .field input[type="number"] { width: 80px; }
+        input[type="text"] { width: 80px; text-transform: uppercase; }
+
+        .checkboxes { display: flex; gap: var(--space-lg); flex-wrap: wrap; align-items: center; padding-top: var(--space-xs); }
+        .checkbox-label { display: flex; align-items: center; gap: var(--space-xs); font-size: var(--font-size-sm); cursor: pointer; user-select: none; }
+        .checkbox-label input[type="checkbox"] { cursor: pointer; }
+
+        .divider { width: 1px; height: 36px; background: var(--color-border); align-self: flex-end; margin-bottom: 2px; }
+
+        .btn-run {
+            padding: 7px var(--space-lg);
+            background: var(--color-primary);
+            color: #fff;
+            border: none;
+            border-radius: var(--border-radius-md);
+            font-size: var(--font-size-sm);
+            font-weight: var(--font-weight-medium);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            white-space: nowrap;
+        }
+        .btn-run:hover { background: var(--color-primary-hover); }
+        .btn-run:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* ── Main two-column area ── */
+        .main-area { display: flex; gap: var(--space-lg); align-items: flex-start; }
+        .table-col { flex: 1 1 0; min-width: 0; transition: var(--transition-base); }
+        .panel-col { flex: 0 0 400px; transition: var(--transition-base); display: none; }
+        .panel-col.open { display: block; }
+
+        /* ── Table ── */
+        .table-wrap {
+            background: var(--color-bg);
+            border: var(--border-width) solid var(--color-border);
+            border-radius: var(--border-radius-lg);
+            overflow-x: auto;
+        }
+        table { width: 100%; border-collapse: collapse; font-size: var(--font-size-sm); }
+        thead th {
+            padding: var(--space-sm) var(--space-md);
+            text-align: left;
+            font-weight: var(--font-weight-semibold);
+            color: var(--color-text-secondary);
+            background: var(--color-bg-tertiary);
+            border-bottom: var(--border-width) solid var(--color-border);
+            white-space: nowrap;
+        }
+        tbody tr { cursor: pointer; transition: background var(--transition-fast); }
+        tbody tr:hover { background: var(--color-bg-secondary); }
+        tbody tr.selected { background: #eff6ff; }
+        tbody tr + tr td { border-top: var(--border-width) solid var(--color-border); }
+        td { padding: var(--space-sm) var(--space-md); white-space: nowrap; vertical-align: middle; }
+        td.mono { font-family: var(--font-family-mono); }
+
+        .rank-cell { color: var(--color-text-muted); font-size: var(--font-size-xs); width: 32px; }
+        .desc-cell { font-weight: var(--font-weight-medium); max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+        .positive { color: var(--color-success); }
+        .negative { color: var(--color-error); }
+        .warn-icon { color: var(--color-warning); margin-left: 4px; font-style: normal; cursor: help; }
+
+        .btn-load {
+            padding: 3px 10px;
+            font-size: var(--font-size-xs);
+            font-weight: var(--font-weight-medium);
+            border: var(--border-width) solid var(--color-primary);
+            border-radius: var(--border-radius-md);
+            color: var(--color-primary);
+            background: transparent;
+            cursor: pointer;
+            transition: var(--transition-fast);
+        }
+        .btn-load:hover { background: var(--color-primary); color: #fff; }
+
+        .state-row td { text-align: center; padding: var(--space-2xl); color: var(--color-text-muted); }
+        .spinner {
+            display: inline-block; width: 16px; height: 16px;
+            border: 2px solid var(--color-border);
+            border-top-color: var(--color-primary);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            vertical-align: middle; margin-right: var(--space-xs);
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Side panel ── */
+        .side-panel {
+            background: var(--color-bg);
+            border: var(--border-width) solid var(--color-border);
+            border-radius: var(--border-radius-lg);
+            overflow: hidden;
+        }
+        .panel-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: var(--space-md);
+            border-bottom: var(--border-width) solid var(--color-border);
+            background: var(--color-bg-tertiary);
+        }
+        .panel-title { font-weight: var(--font-weight-semibold); font-size: var(--font-size-sm); }
+        .btn-close {
+            background: none; border: none; cursor: pointer;
+            font-size: var(--font-size-lg); color: var(--color-text-muted); line-height: 1;
+            padding: 0 4px;
+        }
+        .btn-close:hover { color: var(--color-text); }
+
+        .panel-metrics {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 1px; background: var(--color-border);
+            border-bottom: var(--border-width) solid var(--color-border);
+        }
+        .metric-cell {
+            background: var(--color-bg); padding: var(--space-sm) var(--space-md);
+        }
+        .metric-label { font-size: var(--font-size-xs); color: var(--color-text-muted); margin-bottom: 2px; }
+        .metric-value { font-family: var(--font-family-mono); font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); }
+
+        .panel-chart { padding: var(--space-md); min-height: 200px; display: flex; align-items: center; justify-content: center; }
+        .panel-chart img { width: 100%; height: auto; border-radius: var(--border-radius-md); }
+        .chart-loading { color: var(--color-text-muted); font-size: var(--font-size-sm); }
+
+        /* ── Error banner ── */
+        .error-banner {
+            background: #fee2e2; color: #b91c1c;
+            border: var(--border-width) solid #fca5a5;
+            border-radius: var(--border-radius-md);
+            padding: var(--space-sm) var(--space-md);
+            font-size: var(--font-size-sm);
+            margin-bottom: var(--space-md);
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="page-header">
+    <h1>Strategy Optimizer</h1>
+    <div class="nav-links">
+        <a href="/signals" class="nav-link">Volatility Signals</a>
+        <a href="/" class="nav-link">← Option Analyzer</a>
+    </div>
+</div>
+
+<div class="content">
+
+    <!-- Controls -->
+    <div class="controls-card">
+        <div class="controls-row">
+            <div class="field">
+                <label for="symbol-input">Symbol</label>
+                <input type="text" id="symbol-input" placeholder="SPY" maxlength="10">
+            </div>
+            <div class="field">
+                <label for="expiration-select">Expiration</label>
+                <select id="expiration-select" disabled>
+                    <option value="">— enter symbol —</option>
+                </select>
+            </div>
+            <div class="divider"></div>
+            <div class="field">
+                <label for="max-loss-input">Max Loss ($)</label>
+                <input type="number" id="max-loss-input" placeholder="any" min="0" step="50">
+            </div>
+            <div class="field">
+                <label for="top-n-input">Top N</label>
+                <input type="number" id="top-n-input" value="20" min="1" max="200">
+            </div>
+            <div class="divider"></div>
+            <div class="field">
+                <label>Strategy types</label>
+                <div class="checkboxes">
+                    <label class="checkbox-label"><input type="checkbox" id="cb-1leg" checked> 1-Leg</label>
+                    <label class="checkbox-label"><input type="checkbox" id="cb-2leg" checked> 2-Leg</label>
+                    <label class="checkbox-label"><input type="checkbox" id="cb-named" checked> Named (condors, flies)</label>
+                    <label class="checkbox-label" id="stock-legs-label"><input type="checkbox" id="cb-stock" checked> Stock legs</label>
+                    <div class="field" id="stock-qty-field" style="flex-direction:row; align-items:center; gap:var(--space-xs); margin-left:var(--space-xs);">
+                        <label for="stock-qty-input" style="white-space:nowrap">× </label>
+                        <input type="number" id="stock-qty-input" value="100" min="1" style="width:60px">
+                        <label for="stock-qty-input" style="white-space:nowrap"> shares</label>
+                    </div>
+                </div>
+            </div>
+            <button class="btn-run" id="run-btn" disabled>Run</button>
+        </div>
+    </div>
+
+    <div id="error-banner" class="error-banner"></div>
+
+    <!-- Table + side panel -->
+    <div class="main-area">
+        <div class="table-col">
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="rank-cell">#</th>
+                            <th>Strategy</th>
+                            <th>EV/Risk</th>
+                            <th>EV</th>
+                            <th>PoP</th>
+                            <th>Max Loss</th>
+                            <th>Max Gain</th>
+                            <th>Premium</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-tbody">
+                        <tr class="state-row">
+                            <td colspan="9">Enter a symbol and click Run to find strategies.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="panel-col" id="panel-col">
+            <div class="side-panel">
+                <div class="panel-header">
+                    <span class="panel-title" id="panel-title">—</span>
+                    <button class="btn-close" id="panel-close" title="Close">×</button>
+                </div>
+                <div class="panel-metrics" id="panel-metrics"></div>
+                <div class="panel-chart" id="panel-chart">
+                    <span class="chart-loading">Select a row to view chart.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+(() => {
+    // ── State ──────────────────────────────────────────────────────────────
+    let selectedRank = null;
+    let chartCache = {};  // rank → plot_url
+
+    // ── DOM refs ───────────────────────────────────────────────────────────
+    const symbolInput    = document.getElementById('symbol-input');
+    const expirationSel  = document.getElementById('expiration-select');
+    const maxLossInput   = document.getElementById('max-loss-input');
+    const topNInput      = document.getElementById('top-n-input');
+    const cb1leg         = document.getElementById('cb-1leg');
+    const cb2leg         = document.getElementById('cb-2leg');
+    const cbNamed        = document.getElementById('cb-named');
+    const cbStock        = document.getElementById('cb-stock');
+    const stockQtyInput  = document.getElementById('stock-qty-input');
+    const stockQtyField  = document.getElementById('stock-qty-field');
+    const runBtn         = document.getElementById('run-btn');
+    const tbody          = document.getElementById('results-tbody');
+    const errorBanner    = document.getElementById('error-banner');
+    const panelCol       = document.getElementById('panel-col');
+    const panelTitle     = document.getElementById('panel-title');
+    const panelMetrics   = document.getElementById('panel-metrics');
+    const panelChart     = document.getElementById('panel-chart');
+    const panelClose     = document.getElementById('panel-close');
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+    function showError(msg) {
+        errorBanner.textContent = msg;
+        errorBanner.style.display = 'block';
+    }
+    function clearError() { errorBanner.style.display = 'none'; }
+
+    function fmt$(v) {
+        if (v == null) return '—';
+        const sign = v >= 0 ? '+' : '';
+        return sign + '$' + Math.abs(v).toFixed(0);
+    }
+    function fmtPop(v) { return (v * 100).toFixed(0) + '%'; }
+    function fmtRatio(v) { return v.toFixed(3); }
+    function fmtPremium(v) {
+        if (v == null) return '—';
+        const abs = Math.abs(v).toFixed(0);
+        return v >= 0 ? `+$${abs} cr` : `-$${abs} db`;
+    }
+
+    // ── Symbol lookup ──────────────────────────────────────────────────────
+    async function lookupSymbol(symbol) {
+        if (!symbol) return;
+        expirationSel.disabled = true;
+        expirationSel.innerHTML = '<option>Loading...</option>';
+        runBtn.disabled = true;
+        clearError();
+        try {
+            const res = await fetch(`/api/stocks/${encodeURIComponent(symbol)}`);
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                showError(err.error || `Symbol '${symbol}' not found`);
+                expirationSel.innerHTML = '<option value="">— not found —</option>';
+                return;
+            }
+            const data = await res.json();
+            const exps = data.available_expirations || [];
+            if (exps.length === 0) {
+                showError(`No option expirations available for ${symbol}`);
+                expirationSel.innerHTML = '<option value="">— none —</option>';
+                return;
+            }
+            expirationSel.innerHTML = exps.map(e => `<option value="${e}">${e}</option>`).join('');
+            expirationSel.disabled = false;
+            runBtn.disabled = false;
+        } catch (e) {
+            showError(e.message);
+        }
+    }
+
+    symbolInput.addEventListener('blur', () => {
+        const sym = symbolInput.value.trim().toUpperCase();
+        if (sym) lookupSymbol(sym);
+    });
+    symbolInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') symbolInput.blur();
+    });
+
+    // Show/hide stock qty when stock checkbox toggled
+    cbStock.addEventListener('change', () => {
+        stockQtyField.style.display = cbStock.checked ? '' : 'none';
+    });
+
+    // ── Run optimizer ──────────────────────────────────────────────────────
+    runBtn.addEventListener('click', runOptimizer);
+
+    async function runOptimizer() {
+        clearError();
+        const symbol = symbolInput.value.trim().toUpperCase();
+        const expiration = expirationSel.value;
+        if (!symbol || !expiration) { showError('Select a symbol and expiration first.'); return; }
+
+        const maxLoss = maxLossInput.value ? parseFloat(maxLossInput.value) : null;
+        const topN = parseInt(topNInput.value) || 20;
+
+        const payload = {
+            symbol,
+            expiration,
+            max_loss_limit: maxLoss,
+            top_n: topN,
+            include_1leg:          cb1leg.checked,
+            include_2leg:          cb2leg.checked,
+            include_named_multileg: cbNamed.checked,
+            include_stock_legs:    cbStock.checked,
+            stock_qty:             parseInt(stockQtyInput.value) || 100,
+        };
+
+        runBtn.disabled = true;
+        runBtn.textContent = 'Running…';
+        tbody.innerHTML = `<tr class="state-row"><td colspan="9"><span class="spinner"></span> Running Monte Carlo and ranking strategies…</td></tr>`;
+        closePanel();
+        chartCache = {};
+
+        try {
+            const res = await fetch('/api/optimize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                credentials: 'include',
+            });
+            const data = await res.json();
+            if (!res.ok) { showError(data.error || `Error ${res.status}`); setIdle(); return; }
+            renderResults(data.results || []);
+        } catch (e) {
+            showError(e.message);
+        } finally {
+            setIdle();
+        }
+    }
+
+    function setIdle() {
+        runBtn.disabled = false;
+        runBtn.textContent = 'Run';
+    }
+
+    // ── Render results table ───────────────────────────────────────────────
+    function renderResults(results) {
+        if (results.length === 0) {
+            tbody.innerHTML = `<tr class="state-row"><td colspan="9">No strategies matched the constraints.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = results.map(r => {
+            const evClass    = r.ev    >= 0 ? 'positive' : 'negative';
+            const lossClass  = r.max_loss != null && r.max_loss < 0 ? 'negative' : '';
+            const gainClass  = r.max_gain != null && r.max_gain > 0 ? 'positive' : '';
+            const warnIcon   = r.loss_unbounded ? `<em class="warn-icon" title="Theoretical loss is unbounded — estimate only">⚠</em>` : '';
+            const premClass  = r.net_premium >= 0 ? 'positive' : 'negative';
+            const maxLossStr = r.max_loss != null ? fmt$(r.max_loss) : '—';
+
+            return `<tr data-rank="${r.rank}">
+                <td class="rank-cell">${r.rank}</td>
+                <td class="desc-cell" title="${r.description}">${r.description}</td>
+                <td class="mono">${fmtRatio(r.ev_to_risk)}</td>
+                <td class="mono ${evClass}">${fmt$(r.ev)}</td>
+                <td class="mono">${fmtPop(r.pop)}</td>
+                <td class="mono ${lossClass}">${maxLossStr}${warnIcon}</td>
+                <td class="mono ${gainClass}">${r.max_gain != null ? fmt$(r.max_gain) : '—'}</td>
+                <td class="mono ${premClass}">${fmtPremium(r.net_premium)}</td>
+                <td><button class="btn-load" data-rank="${r.rank}">Load</button></td>
+            </tr>`;
+        }).join('');
+
+        // Row click → open panel
+        tbody.querySelectorAll('tr[data-rank]').forEach(tr => {
+            tr.addEventListener('click', e => {
+                if (e.target.classList.contains('btn-load')) return;
+                selectRow(parseInt(tr.dataset.rank));
+            });
+        });
+
+        // Load button
+        tbody.querySelectorAll('.btn-load').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                loadStrategy(parseInt(btn.dataset.rank));
+            });
+        });
+    }
+
+    // ── Side panel ─────────────────────────────────────────────────────────
+    function selectRow(rank) {
+        selectedRank = rank;
+
+        // Highlight row
+        tbody.querySelectorAll('tr').forEach(tr => tr.classList.remove('selected'));
+        const tr = tbody.querySelector(`tr[data-rank="${rank}"]`);
+        if (tr) tr.classList.add('selected');
+
+        // Open panel
+        panelCol.classList.add('open');
+
+        // Set title from description cell
+        const desc = tr ? tr.querySelector('.desc-cell')?.title || tr.querySelector('.desc-cell')?.textContent : `Strategy #${rank}`;
+        panelTitle.textContent = desc;
+
+        // Metrics from row cells
+        const cells = tr ? tr.querySelectorAll('td') : [];
+        // cells: 0=#, 1=desc, 2=ev/risk, 3=ev, 4=pop, 5=maxloss, 6=maxgain, 7=prem, 8=load
+        if (cells.length >= 8) {
+            panelMetrics.innerHTML = [
+                { label: 'EV / Risk', val: cells[2].textContent },
+                { label: 'Expected Value', val: cells[3].textContent },
+                { label: 'Prob. of Profit', val: cells[4].textContent },
+                { label: 'Max Loss', val: cells[5].textContent },
+                { label: 'Max Gain', val: cells[6].textContent },
+                { label: 'Premium', val: cells[7].textContent },
+            ].map(m => `<div class="metric-cell"><div class="metric-label">${m.label}</div><div class="metric-value">${m.val}</div></div>`).join('');
+        }
+
+        loadChart(rank);
+    }
+
+    async function loadChart(rank) {
+        if (chartCache[rank]) {
+            showChart(chartCache[rank]);
+            return;
+        }
+        panelChart.innerHTML = `<span class="chart-loading"><span class="spinner"></span> Generating chart…</span>`;
+        try {
+            const res = await fetch(`/api/optimize/chart/${rank}`, { credentials: 'include' });
+            const data = await res.json();
+            if (!res.ok) { panelChart.innerHTML = `<span class="chart-loading">Chart unavailable.</span>`; return; }
+            chartCache[rank] = data.plot_url;
+            showChart(data.plot_url);
+        } catch (e) {
+            panelChart.innerHTML = `<span class="chart-loading">Failed to load chart.</span>`;
+        }
+    }
+
+    function showChart(url) {
+        panelChart.innerHTML = `<img src="/${url}" alt="P&amp;L chart" loading="lazy">`;
+    }
+
+    function closePanel() {
+        panelCol.classList.remove('open');
+        tbody.querySelectorAll('tr').forEach(tr => tr.classList.remove('selected'));
+        selectedRank = null;
+    }
+    panelClose.addEventListener('click', closePanel);
+
+    // ── Load strategy into builder ─────────────────────────────────────────
+    async function loadStrategy(rank) {
+        try {
+            const res = await fetch(`/api/optimize/load/${rank}`, {
+                method: 'POST',
+                credentials: 'include',
+            });
+            const data = await res.json();
+            if (!res.ok) { showError(data.error || 'Failed to load strategy'); return; }
+            window.location.href = data.redirect || '/';
+        } catch (e) {
+            showError(e.message);
+        }
+    }
+
+    // ── Pre-fill symbol from query string ──────────────────────────────────
+    const params = new URLSearchParams(window.location.search);
+    const qs = params.get('symbol');
+    if (qs) {
+        symbolInput.value = qs.toUpperCase();
+        lookupSymbol(qs.toUpperCase());
+    }
+})();
+</script>
+</body>
+</html>
