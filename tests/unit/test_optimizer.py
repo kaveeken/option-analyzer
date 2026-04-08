@@ -718,8 +718,13 @@ class TestOptimizeStrategiesFilters:
         assert all(r.strategy.stock_quantity == 0 for r in results)
 
     def test_empty_chain_returns_empty(self, stock: Stock, flat_bins: list[PriceBin]) -> None:
+        """No options in chain → no option-based strategies (stock-only disabled)."""
         empty = OptionChain(expiration=EXP_DATE, calls=[], puts=[])
-        results = optimize_strategies(flat_bins, empty, stock, top_n=100)
+        results = optimize_strategies(
+            flat_bins, empty, stock,
+            include_stock_legs=False,
+            top_n=100,
+        )
         assert results == []
 
     def test_empty_bins_raises(self, stock: Stock, chain: OptionChain) -> None:

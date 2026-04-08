@@ -1445,7 +1445,7 @@ class TestAnalyzeStrategyEndpoint:
 
         assert response.status_code == 400
         data = response.json()
-        assert "no option positions" in data["error"].lower()
+        assert "no positions" in data["error"].lower()
 
     def test_analyze_strategy_missing_bid_ask(self, test_client, mock_ibkr_client, session_service):
         """Test that analyzing with missing bid/ask prices returns 400."""
