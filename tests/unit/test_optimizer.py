@@ -543,7 +543,12 @@ class TestEvToRisk:
         assert all(abs(r.ev_to_risk) < float("inf") for r in results)
 
     def test_defined_risk_ratio_correct(self, stock: Stock, chain: OptionChain, flat_bins: list[PriceBin]) -> None:
-        """ev_to_risk == EV / abs(max_loss) for a defined-risk strategy."""
+        """ev_to_risk == EV / abs(effective_max_loss) for a defined-risk strategy.
+
+        effective_max_loss = min(mc_max_loss, theoretical_max_loss) — the more
+        conservative of the two, since the MC range may not cover the full loss zone.
+        """
+        from option_analyzer.services.optimizer import theoretical_max_loss as theo_ml
         results = optimize_strategies(
             flat_bins, chain, stock,
             include_1leg=False,
@@ -553,12 +558,11 @@ class TestEvToRisk:
             top_n=200,
         )
         for r in results:
-            if (
-                not r.loss_unbounded
-                and r.metrics.max_loss is not None
-                and abs(r.metrics.max_loss) >= 1e-2
-            ):
-                expected = r.metrics.expected_value / abs(r.metrics.max_loss)
+            if r.loss_unbounded or r.metrics.max_loss is None:
+                continue
+            effective = min(r.metrics.max_loss, theo_ml(r.strategy))
+            if effective < -1e-2:
+                expected = r.metrics.expected_value / abs(effective)
                 assert abs(r.ev_to_risk - expected) < 1e-9
                 break
         else:

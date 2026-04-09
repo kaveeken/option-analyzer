@@ -182,11 +182,11 @@ def describe_strategy(strategy: Strategy) -> str:
 
 
 def _has_valid_bid(contract: OptionContract) -> bool:
-    return contract.bid is not None
+    return contract.bid is not None and contract.bid > 0
 
 
 def _has_valid_ask(contract: OptionContract) -> bool:
-    return contract.ask is not None
+    return contract.ask is not None and contract.ask > 0
 
 
 def _position_valid(contract: OptionContract, quantity: int) -> bool:
@@ -257,20 +257,51 @@ def _percentile_loss(bins: list[PriceBin], strategy: Strategy, pct: float = 0.05
     return worst_payoff
 
 
+def theoretical_max_loss(strategy: Strategy) -> float:
+    """
+    Evaluate payoff at boundary prices to find the worst-case theoretical loss.
+
+    Checks payoff at:
+      - price = 0.01 (near-zero; worst case for long puts / short stock)
+      - Just below, at, and just above each option strike (payoff kink points)
+      - 3× current price (worst case for short calls / long stock)
+
+    Used to detect strategies whose loss zone falls entirely outside the MC
+    price distribution, which would otherwise make them appear risk-free.
+    """
+    current = strategy.stock.current_price
+    strikes = [p.contract.strike for p in strategy.option_positions]
+
+    test_prices: list[float] = [0.01]
+    for k in strikes:
+        test_prices.extend([max(0.01, k - 0.01), k, k + 0.01])
+    test_prices.append(current * 3.0)
+
+    return min(strategy.total_payoff(p) for p in test_prices)
+
+
 def _ev_to_risk(metrics: RiskMetrics, bins: list[PriceBin], strategy: Strategy) -> tuple[float, bool]:
     """
     Compute (ev_to_risk ratio, loss_unbounded flag).
 
-    Returns EV / abs(max_loss). When max_loss is effectively zero (strategy
-    never loses in the distribution), falls back to the 5th-percentile payoff
-    as the denominator and marks loss_unbounded=True.
+    Uses the more conservative of the MC-derived max_loss and the theoretical
+    max_loss evaluated at boundary prices. This prevents strategies whose loss
+    zone falls outside the MC price range from appearing risk-free and receiving
+    an inflated ratio.
     """
     unbounded = _is_loss_unbounded(strategy)
-    max_loss = metrics.max_loss
+    mc_max_loss = metrics.max_loss
 
-    if max_loss is None or abs(max_loss) < 1e-2:
+    # Theoretical worst-case payoff at boundary prices (strikes, price=0, 3× price)
+    theoretical = theoretical_max_loss(strategy)
+
+    # Use the more conservative (more negative) of the two
+    max_loss = min(mc_max_loss, theoretical) if mc_max_loss is not None else theoretical
+
+    if max_loss >= -1e-2:
+        # No meaningful loss found — use 5th percentile as last resort
         estimated = _percentile_loss(bins, strategy, pct=0.05)
-        denom = abs(estimated) if abs(estimated) >= 1e-2 else 1e-2
+        denom = abs(estimated) if abs(estimated) >= 1e-2 else 1.0
         return metrics.expected_value / denom, True
 
     return metrics.expected_value / abs(max_loss), unbounded
