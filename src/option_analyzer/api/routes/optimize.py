@@ -6,12 +6,14 @@ candidates by EV-to-risk ratio. Results are stored in the session so
 individual charts can be generated lazily on demand.
 """
 
+import json
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from typing import Annotated
 
 import numpy as np
 from fastapi import APIRouter, Depends, Response
+from fastapi.responses import StreamingResponse
 
 from ...clients.ibkr import IBKRClient
 from ...models.domain import OptionContract, OptionPosition, Stock, Strategy
@@ -35,6 +37,60 @@ from ..schemas import (
 )
 
 router = APIRouter(prefix="/api/optimize", tags=["optimize"])
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _sse(event_type: str, payload) -> str:
+    """Format a Server-Sent Event string."""
+    return f"data: {json.dumps({'type': event_type, 'payload': payload})}\n\n"
+
+
+def _format_legs(strategy: Strategy) -> list[str]:
+    """Format strategy legs as human-readable strings for the UI side panel."""
+    legs: list[str] = []
+    if strategy.stock_quantity != 0:
+        direction = "Long" if strategy.stock_quantity > 0 else "Short"
+        legs.append(f"{direction} {abs(strategy.stock_quantity)} shares")
+    for pos in sorted(strategy.option_positions, key=lambda p: (p.contract.strike, p.contract.right)):
+        c = pos.contract
+        direction = "Long" if pos.quantity > 0 else "Short"
+        qty_str = "" if abs(pos.quantity) == 1 else f"{abs(pos.quantity)}× "
+        kind = "Call" if c.right == "C" else "Put"
+        strike = int(c.strike) if c.strike == int(c.strike) else c.strike
+        if c.bid is not None and c.ask is not None:
+            price_str = f"@ ${(c.bid + c.ask) / 2:.2f}"
+        elif pos.quantity > 0 and c.ask is not None:
+            price_str = f"@ ${c.ask:.2f}"
+        elif pos.quantity < 0 and c.bid is not None:
+            price_str = f"@ ${c.bid:.2f}"
+        else:
+            price_str = ""
+        legs.append(f"{direction} {qty_str}{kind} {strike} {price_str}".strip())
+    return legs
+
+
+def _build_rows(results, symbol: str, expiration: str):
+    """Build OptimizeResultRow list and session-storable result dicts."""
+    rows = [
+        OptimizeResultRow(
+            rank=i + 1,
+            description=r.description,
+            ev_to_risk=r.ev_to_risk,
+            ev=r.metrics.expected_value,
+            pop=r.metrics.probability_of_profit,
+            max_loss=r.metrics.max_loss,
+            max_gain=r.metrics.max_gain,
+            net_premium=r.strategy.net_premium,
+            loss_unbounded=r.loss_unbounded,
+            legs=_format_legs(r.strategy),
+        )
+        for i, r in enumerate(results)
+    ]
+    return rows
 
 
 def _strategy_from_result_data(data: dict) -> Strategy:
@@ -155,23 +211,97 @@ async def run_optimizer(
         "results": [r.model_dump() for r in results],
     }
 
-    # Build response rows
-    rows = [
-        OptimizeResultRow(
-            rank=i + 1,
-            description=r.description,
-            ev_to_risk=r.ev_to_risk,
-            ev=r.metrics.expected_value,
-            pop=r.metrics.probability_of_profit,
-            max_loss=r.metrics.max_loss,
-            max_gain=r.metrics.max_gain,
-            net_premium=r.strategy.net_premium,
-            loss_unbounded=r.loss_unbounded,
-        )
-        for i, r in enumerate(results)
-    ]
+    rows = _build_rows(results, symbol, request.expiration)
 
     return OptimizeResponse(symbol=symbol, expiration=request.expiration, results=rows)
+
+
+@router.post("/stream")
+async def run_optimizer_stream(
+    request: OptimizeRequest,
+    ibkr: Annotated[IBKRClient, Depends(get_ibkr_client)],
+    session_service: Annotated[SessionService, Depends(get_session_service_dep)],
+) -> StreamingResponse:
+    """
+    Run the strategy optimizer with Server-Sent Events progress updates.
+
+    Streams four progress events (stock fetch, chain fetch, Monte Carlo,
+    ranking) then a final 'results' event containing the full ranked table.
+    Cookies and session are established before streaming begins.
+    """
+    symbol = request.symbol.upper()
+    session = session_service.create_session()
+
+    async def event_gen():
+        try:
+            yield _sse("progress", {"step": "stock", "message": "Fetching stock data…"})
+            stock = await ibkr.get_stock(symbol)
+
+            if not stock.available_expirations:
+                yield _sse("error", {"message": f"No option expirations available for '{symbol}'"})
+                return
+            if request.expiration not in stock.available_expirations:
+                yield _sse("error", {
+                    "message": f"Expiration '{request.expiration}' not available for '{symbol}'. "
+                               f"Available: {', '.join(stock.available_expirations)}"
+                })
+                return
+
+            yield _sse("progress", {"step": "chain", "message": "Fetching option chain…"})
+            chain = await ibkr.get_option_chain(stock.conid, request.expiration)
+
+            yield _sse("progress", {"step": "montecarlo", "message": "Running Monte Carlo simulation (10,000 paths)…"})
+            historical_data = await ibkr.get_historical_data(conid=stock.conid, years=5)
+            closes = np.array([entry["close"] for entry in historical_data["closes"]])
+            returns = geometric_returns(closes)
+            price_distribution = get_price_distribution(
+                current_price=stock.current_price,
+                returns=returns,
+                target_date=chain.expiration,
+                bootstrap_samples=10000,
+            )
+            bins = create_histogram(price_distribution, n_bins=50)
+
+            yield _sse("progress", {"step": "ranking", "message": "Enumerating and ranking strategies…"})
+            results = optimize_strategies(
+                bins,
+                chain,
+                stock,
+                include_1leg=request.include_1leg,
+                include_2leg=request.include_2leg,
+                include_named_multileg=request.include_named_multileg,
+                include_stock_legs=request.include_stock_legs,
+                stock_qty=request.stock_qty,
+                max_loss_limit=request.max_loss_limit,
+                top_n=request.top_n,
+            )
+
+            session.data["optimize"] = {
+                "symbol": symbol,
+                "stock_conid": stock.conid,
+                "current_price": stock.current_price,
+                "expiration": request.expiration,
+                "available_expirations": stock.available_expirations,
+                "bins": [b.model_dump() for b in bins],
+                "results": [r.model_dump() for r in results],
+            }
+
+            rows = _build_rows(results, symbol, request.expiration)
+            response_data = OptimizeResponse(symbol=symbol, expiration=request.expiration, results=rows)
+            yield _sse("results", response_data.model_dump())
+
+        except Exception as e:
+            yield _sse("error", {"message": str(e)})
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={
+            "Set-Cookie": f"session_id={session.session_id}; Path=/; SameSite=Lax",
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/chart/{rank}", response_model=OptimizeChartResponse)

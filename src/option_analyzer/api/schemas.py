@@ -427,6 +427,7 @@ class OptimizeResultRow(BaseModel):
     max_gain: float | None = Field(description="Maximum possible gain in dollars")
     net_premium: float = Field(description="Net credit (positive) or debit (negative)")
     loss_unbounded: bool = Field(description="True when theoretical downside is unlimited")
+    legs: list[str] = Field(default_factory=list, description="Human-readable leg descriptions")
 
 
 class OptimizeResponse(BaseModel):

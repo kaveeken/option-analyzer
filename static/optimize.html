@@ -278,7 +278,8 @@
 (() => {
     // ── State ──────────────────────────────────────────────────────────────
     let selectedRank = null;
-    let chartCache = {};  // rank → plot_url
+    let chartCache = {};   // rank → plot_url
+    let rowData    = {};   // rank → full result object (includes legs)
 
     // ── DOM refs ───────────────────────────────────────────────────────────
     const symbolInput    = document.getElementById('symbol-input');
@@ -363,6 +364,26 @@
         stockQtyField.style.display = cbStock.checked ? '' : 'none';
     });
 
+    // ── SSE reader ─────────────────────────────────────────────────────────
+    async function* readSSE(response) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            // SSE events are separated by double newline
+            const parts = buffer.split('\n\n');
+            buffer = parts.pop() ?? '';
+            for (const part of parts) {
+                const line = part.split('\n').find(l => l.startsWith('data: '));
+                if (!line) continue;
+                try { yield JSON.parse(line.slice(6)); } catch { /* skip malformed */ }
+            }
+        }
+    }
+
     // ── Run optimizer ──────────────────────────────────────────────────────
     runBtn.addEventListener('click', runOptimizer);
 
@@ -372,39 +393,54 @@
         const expiration = expirationSel.value;
         if (!symbol || !expiration) { showError('Select a symbol and expiration first.'); return; }
 
-        const maxLoss = maxLossInput.value ? parseFloat(maxLossInput.value) : null;
-        const topN = parseInt(topNInput.value) || 20;
-
         const payload = {
             symbol,
             expiration,
-            max_loss_limit: maxLoss,
-            top_n: topN,
-            include_1leg:          cb1leg.checked,
-            include_2leg:          cb2leg.checked,
+            max_loss_limit: maxLossInput.value ? parseFloat(maxLossInput.value) : null,
+            top_n: parseInt(topNInput.value) || 20,
+            include_1leg:           cb1leg.checked,
+            include_2leg:           cb2leg.checked,
             include_named_multileg: cbNamed.checked,
-            include_stock_legs:    cbStock.checked,
-            stock_qty:             parseInt(stockQtyInput.value) || 100,
+            include_stock_legs:     cbStock.checked,
+            stock_qty:              parseInt(stockQtyInput.value) || 100,
         };
 
         runBtn.disabled = true;
         runBtn.textContent = 'Running…';
-        tbody.innerHTML = `<tr class="state-row"><td colspan="9"><span class="spinner"></span> Running Monte Carlo and ranking strategies…</td></tr>`;
+        tbody.innerHTML = `<tr class="state-row"><td colspan="9"><span class="spinner"></span> <span id="progress-label">Starting…</span></td></tr>`;
         closePanel();
         chartCache = {};
+        rowData    = {};
 
         try {
-            const res = await fetch('/api/optimize', {
+            const res = await fetch('/api/optimize/stream', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
                 credentials: 'include',
             });
-            const data = await res.json();
-            if (!res.ok) { showError(data.error || `Error ${res.status}`); setIdle(); return; }
-            renderResults(data.results || []);
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                showError(err.error || `Error ${res.status}`);
+                tbody.innerHTML = `<tr class="state-row"><td colspan="9">No results.</td></tr>`;
+                return;
+            }
+
+            for await (const event of readSSE(res)) {
+                if (event.type === 'progress') {
+                    const label = document.getElementById('progress-label');
+                    if (label) label.textContent = event.payload.message || String(event.payload);
+                } else if (event.type === 'results') {
+                    renderResults(event.payload.results || []);
+                } else if (event.type === 'error') {
+                    showError(event.payload.message || String(event.payload));
+                    tbody.innerHTML = `<tr class="state-row"><td colspan="9">No results.</td></tr>`;
+                }
+            }
         } catch (e) {
             showError(e.message);
+            tbody.innerHTML = `<tr class="state-row"><td colspan="9">No results.</td></tr>`;
         } finally {
             setIdle();
         }
@@ -421,6 +457,10 @@
             tbody.innerHTML = `<tr class="state-row"><td colspan="9">No strategies matched the constraints.</td></tr>`;
             return;
         }
+
+        // Store full row data (including legs) for the side panel
+        rowData = {};
+        results.forEach(r => { rowData[r.rank] = r; });
 
         tbody.innerHTML = results.map(r => {
             const evClass    = r.ev    >= 0 ? 'positive' : 'negative';
