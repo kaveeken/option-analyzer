@@ -240,9 +240,27 @@ class IBKRClient:
             logger.debug(snapshot)
             raise IBKRAPIError("Invalid marked data snapshot")
         snap = snapshot[0]
+
+        # Field 31 (last price) is absent after market hours or when IBKR data
+        # has gone stale. Fall back to mid of bid/ask, which IBKR usually
+        # returns even when the market is closed.
+        current_price: float | None = snap.get("last")
+        if current_price is None:
+            bid, ask = snap.get("bid"), snap.get("ask")
+            if bid is not None and ask is not None:
+                current_price = (bid + ask) / 2.0
+            elif bid is not None:
+                current_price = bid
+            elif ask is not None:
+                current_price = ask
+            else:
+                raise IBKRAPIError(
+                    f"No price data available for '{symbol}' — market data may be unavailable"
+                )
+
         return Stock(
             symbol=symbol,
-            current_price=snap["last"], # @todo swf: sometimes pydantic validation error for None
+            current_price=current_price,
             conid=conid,
             available_expirations=months,
             iv_30d=snap.get("iv_30d"),
