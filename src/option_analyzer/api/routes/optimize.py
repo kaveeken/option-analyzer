@@ -6,6 +6,7 @@ candidates by EV-to-risk ratio. Results are stored in the session so
 individual charts can be generated lazily on demand.
 """
 
+import asyncio
 import json
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
@@ -262,19 +263,42 @@ async def run_optimizer_stream(
             )
             bins = create_histogram(price_distribution, n_bins=50)
 
-            yield _sse("progress", {"step": "ranking", "message": "Enumerating and ranking strategies…"})
-            results = optimize_strategies(
-                bins,
-                chain,
-                stock,
-                include_1leg=request.include_1leg,
-                include_2leg=request.include_2leg,
-                include_named_multileg=request.include_named_multileg,
-                include_stock_legs=request.include_stock_legs,
-                stock_qty=request.stock_qty,
-                max_loss_limit=request.max_loss_limit,
-                top_n=request.top_n,
+            yield _sse("progress", {"step": "ranking", "message": "Enumerating strategies… 0 / ?"})
+
+            # Run the blocking optimizer in a thread so we can stream progress
+            loop = asyncio.get_running_loop()
+            progress_q: asyncio.Queue[tuple[int, int]] = asyncio.Queue()
+
+            def _on_progress(processed: int, total: int) -> None:
+                loop.call_soon_threadsafe(progress_q.put_nowait, (processed, total))
+
+            opt_future = loop.run_in_executor(
+                None,
+                lambda: optimize_strategies(
+                    bins,
+                    chain,
+                    stock,
+                    include_1leg=request.include_1leg,
+                    include_2leg=request.include_2leg,
+                    include_named_multileg=request.include_named_multileg,
+                    include_stock_legs=request.include_stock_legs,
+                    stock_qty=request.stock_qty,
+                    max_loss_limit=request.max_loss_limit,
+                    top_n=request.top_n,
+                    on_progress=_on_progress,
+                ),
             )
+
+            while not opt_future.done():
+                await asyncio.sleep(0.1)
+                while not progress_q.empty():
+                    processed, total = progress_q.get_nowait()
+                    yield _sse("progress", {
+                        "step": "ranking",
+                        "message": f"Enumerating strategies… {processed:,} / {total:,}",
+                    })
+
+            results = await opt_future
 
             session.data["optimize"] = {
                 "symbol": symbol,

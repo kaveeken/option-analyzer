@@ -22,7 +22,9 @@ Scoring:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from itertools import combinations
+from math import comb
 
 from pydantic import BaseModel
 
@@ -498,6 +500,45 @@ def _enum_stock_with_options(chain: OptionChain, stock: Stock, stock_qty: int):
 
 
 # ---------------------------------------------------------------------------
+# Candidate counting (for progress reporting)
+# ---------------------------------------------------------------------------
+
+
+def _count_candidates(
+    chain: OptionChain,
+    include_1leg: bool,
+    include_2leg: bool,
+    include_named_multileg: bool,
+    include_stock_legs: bool,
+) -> int:
+    """
+    Upper-bound estimate of candidates before bid/ask filtering.
+
+    Used to provide a denominator for progress reporting. Actual processed
+    count will be slightly lower because invalid bid/ask contracts are skipped.
+    """
+    nc = len(chain.calls)
+    np_ = len(chain.puts)
+    n = nc + np_
+    total = 0
+    if include_1leg:
+        total += 2 * n
+    if include_2leg:
+        total += comb(n, 2) * 2
+    if include_named_multileg:
+        total += comb(nc, 2) * comb(np_, 2)            # iron condors
+        total += comb(nc, 3) + comb(np_, 3)            # call + put butterflies
+        atm = len(
+            {c.strike for c in chain.calls} & {p.strike for p in chain.puts}
+        )
+        total += atm * max(nc - 1, 0) * max(np_ - 1, 0)  # iron butterflies
+    if include_stock_legs:
+        n_combos = 1 + 2 * n + comb(n, 2) * 2         # 0 / 1 / 2 option legs
+        total += 2 * n_combos                           # long + short stock
+    return max(total, 1)
+
+
+# ---------------------------------------------------------------------------
 # Constraint check
 # ---------------------------------------------------------------------------
 
@@ -537,6 +578,7 @@ def optimize_strategies(
     min_pop: float | None = None,
     min_ev: float | None = None,
     top_n: int = 20,
+    on_progress: Callable[[int, int], None] | None = None,
 ) -> list[StrategyResult]:
     """
     Enumerate and rank option strategies by EV-to-risk ratio.
@@ -554,6 +596,8 @@ def optimize_strategies(
         min_pop: Exclude strategies with probability_of_profit < min_pop.
         min_ev: Exclude strategies with expected_value < min_ev.
         top_n: Maximum number of results (sorted descending by ev_to_risk).
+        on_progress: Optional callback(processed, total) called roughly every 1%
+            of candidates. Used for progress reporting in streaming endpoints.
 
     Returns:
         Up to top_n StrategyResult objects sorted by ev_to_risk descending.
@@ -575,10 +619,19 @@ def optimize_strategies(
     if include_stock_legs:
         generators.append(_enum_stock_with_options(chain, stock, stock_qty))
 
+    # Upper-bound candidate count for progress denominator
+    total = _count_candidates(chain, include_1leg, include_2leg, include_named_multileg, include_stock_legs)
+    interval = max(1, total // 100)  # ~100 progress ticks
+
     results: list[StrategyResult] = []
+    processed = 0
 
     for gen in generators:
         for strategy in gen:
+            processed += 1
+            if on_progress is not None and processed % interval == 0:
+                on_progress(processed, total)
+
             try:
                 metrics = _compute_metrics(bins, strategy)
             except Exception:
@@ -595,6 +648,9 @@ def optimize_strategies(
                 loss_unbounded=unbounded,
                 description=describe_strategy(strategy),
             ))
+
+    if on_progress is not None:
+        on_progress(processed, total)
 
     results.sort(key=lambda r: r.ev_to_risk, reverse=True)
     return results[:top_n]
