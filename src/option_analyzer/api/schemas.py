@@ -59,7 +59,7 @@ class StockResponse(BaseModel):
     current_price: float = Field(description="Current market price", examples=[150.25])
     conid: int = Field(description="IBKR contract identifier")
     available_expirations: list[str] = Field(
-        description="Available option expiration months", examples=[["JAN26", "FEB26"]]
+        description="Available option expiration dates (DDMMMYY)", examples=[["16JAN26", "20FEB26"]]
     )
     iv_30d: float | None = Field(
         default=None, description="30-day implied volatility % (IBKR field 7283)", examples=[28.5]
@@ -196,11 +196,11 @@ class StrategyInitResponse(BaseModel):
     symbol: str = Field(description="Stock ticker symbol")
     current_price: float = Field(description="Current stock price")
     target_date: str = Field(
-        description="Automatically selected target expiration (earliest)",
-        examples=["JAN26"],
+        description="Automatically selected target expiration (earliest), DDMMMYY format",
+        examples=["16JAN26"],
     )
     available_expirations: list[str] = Field(
-        description="All available expiration months"
+        description="All available expiration dates (DDMMMYY)"
     )
     session_id: str = Field(description="Session ID for subsequent requests")
     iv_30d: float | None = Field(default=None, description="30-day implied volatility %")
@@ -362,10 +362,10 @@ class StrategySummaryResponse(BaseModel):
     symbol: str = Field(description="Stock ticker symbol", examples=["AAPL"])
     current_price: float = Field(description="Current stock price", examples=[150.25])
     target_date: str = Field(
-        description="Target expiration date", examples=["JAN26"]
+        description="Target expiration date (DDMMMYY)", examples=["16JAN26"]
     )
     available_expirations: list[str] = Field(
-        description="Available option expiration months", examples=[["JAN26", "FEB26"]]
+        description="Available option expiration dates (DDMMMYY)", examples=[["16JAN26", "20FEB26"]]
     )
     stock_quantity: int = Field(
         description="Number of shares (positive=long, negative=short, 0=no position)",
@@ -395,8 +395,8 @@ class UpdateTargetDateRequest(BaseModel):
     """
 
     target_date: str = Field(
-        description="New target expiration date",
-        examples=["FEB26"],
+        description="New target expiration date (DDMMMYY)",
+        examples=["20FEB26"],
         min_length=1,
     )
 
@@ -405,7 +405,7 @@ class OptimizeRequest(BaseModel):
     """Request to run strategy optimizer on an option chain."""
 
     symbol: str = Field(description="Stock ticker symbol", examples=["AAPL"], min_length=1, max_length=10)
-    expiration: str = Field(description="Target expiration month", examples=["JAN26"])
+    expiration: str = Field(description="Target expiration date (DDMMMYY)", examples=["16JAN26"])
     max_loss_limit: float | None = Field(default=None, description="Skip strategies with max_loss worse than -limit", examples=[500.0])
     top_n: int = Field(default=20, description="Maximum results to return", ge=1, le=200)
     include_1leg: bool = Field(default=True, description="Include single-leg positions")

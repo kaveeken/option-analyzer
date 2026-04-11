@@ -9,6 +9,16 @@ import types
 from datetime import date, timedelta
 from typing import Any
 
+
+def _month_key(s: str) -> str:
+    """Normalise expiration string to MMMYY for internal key storage/lookup.
+
+    Accepts DDMMMYY (e.g. '16JAN26') or plain MMMYY (e.g. 'JAN26').
+    """
+    if len(s) == 7 and s[:2].isdigit():
+        return s[2:]
+    return s
+
 from option_analyzer.models.domain import OptionChain, Stock
 from option_analyzer.utils.exceptions import IBKRAPIError, SymbolNotFoundError
 
@@ -76,8 +86,12 @@ class FakeIBKRClient:
         self._stocks[symbol] = stock
 
     def add_chain(self, conid: int, month: str, chain: OptionChain) -> None:
-        """Add an option chain response for a specific conid and month."""
-        self._chains[(conid, month)] = chain
+        """Add an option chain response for a specific conid and month.
+
+        Accepts either DDMMMYY (e.g. '16JAN26') or MMMYY (e.g. 'JAN26') format;
+        stored internally as MMMYY for uniform lookup.
+        """
+        self._chains[(conid, _month_key(month))] = chain
 
     def add_historical(self, conid: int, data: dict[str, Any]) -> None:
         """Add historical data response for a specific conid."""
@@ -150,7 +164,7 @@ class FakeIBKRClient:
         stock = make_stock(
             symbol=symbol,
             current_price=150.0,
-            available_expirations=["JAN26", "FEB26", "MAR26"],
+            available_expirations=["15JAN26", "15FEB26", "15MAR26"],
         )
 
         # Cache it for consistency within the test
@@ -166,7 +180,7 @@ class FakeIBKRClient:
 
         Args:
             conid: IBKR contract ID
-            month: Expiration month (e.g., "JAN26")
+            month: Expiration — accepts DDMMMYY (e.g. '16JAN26') or MMMYY (e.g. 'JAN26')
 
         Returns:
             OptionChain with calls and puts
@@ -179,8 +193,11 @@ class FakeIBKRClient:
         if conid_key in self._errors:
             raise self._errors[conid_key]
 
+        # Normalise to MMMYY for key lookup (strips day prefix if present)
+        month_code = _month_key(month)
+
         # Return pre-configured chain if available
-        key = (conid, month)
+        key = (conid, month_code)
         if key in self._chains:
             return self._chains[key]
 
@@ -197,7 +214,7 @@ class FakeIBKRClient:
         )
 
         # Cache it for consistency within the test
-        self._chains[key] = chain
+        self._chains[(conid, month_code)] = chain
         return chain
 
     async def get_historical_data(self, conid: int, years: int = 3) -> dict[str, Any]:
@@ -244,18 +261,17 @@ class FakeIBKRClient:
     @staticmethod
     def _parse_month_to_date(month: str) -> date:
         """
-        Parse month string (e.g., "JAN26") to approximate expiration date.
+        Parse an expiration string to a date.
 
-        This is a simplified parser for testing purposes. It approximates the
-        third Friday of the month.
+        Accepts DDMMMYY (e.g. '16JAN26') or MMMYY (e.g. 'JAN26').
+        For MMMYY, uses the 15th of the month as a simplified approximation.
 
         Args:
-            month: Month string like "JAN26", "FEB26", etc.
+            month: Expiration string
 
         Returns:
-            Approximate expiration date (third Friday of the month)
+            Expiration date
         """
-        # Map month abbreviations to numbers
         month_map = {
             "JAN": 1, "FEB": 2, "MAR": 3, "APR": 4,
             "MAY": 5, "JUN": 6, "JUL": 7, "AUG": 8,
@@ -263,19 +279,21 @@ class FakeIBKRClient:
         }
 
         try:
-            # Parse "JAN26" -> month=1, year=2026
+            # DDMMMYY: "16JAN26"
+            if len(month) == 7 and month[:2].isdigit():
+                day = int(month[:2])
+                month_abbr = month[2:5].upper()
+                year = 2000 + int(month[5:7])
+                return date(year, month_map[month_abbr], day)
+
+            # MMMYY: "JAN26"
             month_abbr = month[:3].upper()
             year_suffix = month[3:5]
-
             month_num = month_map.get(month_abbr, 1)
             year = 2000 + int(year_suffix)
-
-            # Approximate as 3rd Friday (day 15-21 depending on start day)
-            # Simplified: just use the 15th
             return date(year, month_num, 15)
 
         except (ValueError, KeyError, IndexError):
-            # Fallback to 30 days from now
             return date.today() + timedelta(days=30)
 
 

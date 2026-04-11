@@ -35,7 +35,7 @@ def make_stock(
         symbol: Ticker symbol
         current_price: Current market price
         conid: IBKR contract ID
-        available_expirations: List of expiration months (defaults to JAN26, FEB26, MAR26)
+        available_expirations: List of expiration dates in DDMMMYY format (defaults to 15JAN26, 15FEB26, 15MAR26)
         iv_30d: 30-day implied volatility % (IBKR field 7283)
         hist_vol: 30-day historical volatility % (IBKR field 7087)
         iv_hv_ratio: IV/HV ratio as percentage (IBKR field 7084)
@@ -46,7 +46,7 @@ def make_stock(
         Stock instance with specified parameters
     """
     if available_expirations is None:
-        available_expirations = ["JAN26", "FEB26", "MAR26"]
+        available_expirations = ["15JAN26", "15FEB26", "15MAR26"]
 
     return Stock(
         symbol=symbol,

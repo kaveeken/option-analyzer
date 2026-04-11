@@ -59,7 +59,7 @@ class TestFullWorkflow:
         await expect(month_section).not_to_have_class(re.compile(r"hidden"))
 
         # Step 3: Select month and load option chain
-        await page.select_option("#month-selector", "JAN26")
+        await page.select_option("#month-selector", "15JAN26")
         await page.click("#month-load")
 
         # Verify option chain appears
@@ -194,7 +194,7 @@ class TestFullWorkflow:
         await page.wait_for_selector("#stock-info:not(.hidden)")
 
         # Load option chain
-        await page.select_option("#month-selector", "JAN26")
+        await page.select_option("#month-selector", "15JAN26")
         await page.click("#month-load")
         await page.wait_for_selector("#option-chain-section:not(.hidden)")
 
@@ -235,7 +235,7 @@ class TestFullWorkflow:
         # Setup: Create strategy with multiple positions
         await setup_strategy_with_positions(
             symbol="AAPL",
-            month="JAN26",
+            month="15JAN26",
             positions=[(100002, 2), (200002, -1)],
             stock_quantity=100,
         )
@@ -282,7 +282,7 @@ class TestFullWorkflow:
         await page.click("#symbol-submit")
         await page.wait_for_selector("#stock-info:not(.hidden)")
 
-        await page.select_option("#month-selector", "JAN26")
+        await page.select_option("#month-selector", "15JAN26")
         await page.click("#month-load")
         await page.wait_for_selector("#option-chain-section:not(.hidden)")
 

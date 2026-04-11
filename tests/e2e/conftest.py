@@ -168,11 +168,11 @@ async def setup_strategy_with_positions(page: Page, setup_strategy):
     Helper to set up a strategy with option positions.
 
     Usage:
-        await setup_strategy_with_positions(page, "AAPL", "JAN26", positions=[(100002, 2)])
+        await setup_strategy_with_positions(page, "AAPL", "15JAN26", positions=[(100002, 2)])
     """
     async def _setup(
         symbol: str = "AAPL",
-        month: str = "JAN26",
+        month: str = "15JAN26",
         positions: list[tuple[int, int]] = None,
         stock_quantity: int = 0
     ):

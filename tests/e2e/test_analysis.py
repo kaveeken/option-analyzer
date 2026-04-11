@@ -35,7 +35,7 @@ class TestAutoAnalyzeBehavior:
         await page.wait_for_selector("#stock-info:not(.hidden)")
 
         # Load option chain
-        await page.select_option("#month-selector", "JAN26")
+        await page.select_option("#month-selector", "15JAN26")
         await page.click("#month-load")
         await page.wait_for_selector("#option-chain-section:not(.hidden)")
 
@@ -67,7 +67,7 @@ class TestAutoAnalyzeBehavior:
         # Setup with one position
         await setup_strategy_with_positions(
             symbol="AAPL",
-            month="JAN26",
+            month="15JAN26",
             positions=[(100002, 1)],
         )
 
@@ -134,7 +134,7 @@ class TestManualAnalyzeMode:
         await page.wait_for_selector("#stock-info:not(.hidden)")
 
         # Load option chain
-        await page.select_option("#month-selector", "JAN26")
+        await page.select_option("#month-selector", "15JAN26")
         await page.click("#month-load")
         await page.wait_for_selector("#option-chain-section:not(.hidden)")
 
@@ -172,7 +172,7 @@ class TestManualAnalyzeMode:
         await page.click("#symbol-submit")
         await page.wait_for_selector("#stock-info:not(.hidden)")
 
-        await page.select_option("#month-selector", "JAN26")
+        await page.select_option("#month-selector", "15JAN26")
         await page.click("#month-load")
         await page.wait_for_selector("#option-chain-section:not(.hidden)")
 
@@ -264,7 +264,7 @@ class TestAutoAnalyzeCheckboxToggle:
         await page.click("#symbol-submit")
         await page.wait_for_selector("#stock-info:not(.hidden)")
 
-        await page.select_option("#month-selector", "JAN26")
+        await page.select_option("#month-selector", "15JAN26")
         await page.click("#month-load")
         await page.wait_for_selector("#option-chain-section:not(.hidden)")
 
@@ -304,7 +304,7 @@ class TestLoadingState:
         await page.click("#symbol-submit")
         await page.wait_for_selector("#stock-info:not(.hidden)")
 
-        await page.select_option("#month-selector", "JAN26")
+        await page.select_option("#month-selector", "15JAN26")
         await page.click("#month-load")
         await page.wait_for_selector("#option-chain-section:not(.hidden)")
 

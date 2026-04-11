@@ -28,7 +28,7 @@ class TestAddingPositions:
         """Adding a call position appears in the positions table."""
         await setup_strategy_with_positions(
             symbol="AAPL",
-            month="JAN26",
+            month="15JAN26",
             positions=[(100002, 1)],
         )
 
@@ -44,7 +44,7 @@ class TestAddingPositions:
         """Adding a put position appears in the positions table."""
         await setup_strategy_with_positions(
             symbol="AAPL",
-            month="JAN26",
+            month="15JAN26",
             positions=[(200002, -1)],
         )
 
@@ -60,7 +60,7 @@ class TestAddingPositions:
         """Adding multiple positions results in the correct row count."""
         await setup_strategy_with_positions(
             symbol="AAPL",
-            month="JAN26",
+            month="15JAN26",
             positions=[(100001, 1), (100002, -2), (200002, 1)],
         )
 
@@ -74,7 +74,7 @@ class TestAddingPositions:
         """Both call and put positions appear correctly in the table."""
         await setup_strategy_with_positions(
             symbol="AAPL",
-            month="JAN26",
+            month="15JAN26",
             positions=[(100002, 2), (200002, -1)],
         )
 
@@ -101,7 +101,7 @@ class TestAddingPositions:
         """Positions table becomes visible once at least one position is added."""
         await setup_strategy_with_positions(
             symbol="AAPL",
-            month="JAN26",
+            month="15JAN26",
             positions=[(100002, 1)],
         )
 
@@ -121,7 +121,7 @@ class TestPositionDisplayFormat:
         """Call position row shows the strike price and quantity."""
         await setup_strategy_with_positions(
             symbol="AAPL",
-            month="JAN26",
+            month="15JAN26",
             positions=[(100002, 2)],  # ATM call, strike 150
         )
 
@@ -138,7 +138,7 @@ class TestPositionDisplayFormat:
         """Put position row shows the strike price and quantity."""
         await setup_strategy_with_positions(
             symbol="AAPL",
-            month="JAN26",
+            month="15JAN26",
             positions=[(200002, -1)],  # ATM put, strike 150
         )
 
@@ -155,7 +155,7 @@ class TestPositionDisplayFormat:
         """Each position row includes Modify and Delete action buttons."""
         await setup_strategy_with_positions(
             symbol="AAPL",
-            month="JAN26",
+            month="15JAN26",
             positions=[(100002, 1)],
         )
 
@@ -171,7 +171,7 @@ class TestPositionDisplayFormat:
         """Positions at different strikes display the correct strike value."""
         await setup_strategy_with_positions(
             symbol="AAPL",
-            month="JAN26",
+            month="15JAN26",
             positions=[(100001, 1), (100003, 1)],  # 140 and 160 strikes
         )
 
@@ -192,7 +192,7 @@ class TestModifyingPositions:
         """Modifying a position updates the quantity shown in the table."""
         await setup_strategy_with_positions(
             symbol="AAPL",
-            month="JAN26",
+            month="15JAN26",
             positions=[(100002, 1)],
         )
 
@@ -213,7 +213,7 @@ class TestModifyingPositions:
         """A position can be modified to a negative quantity (short position)."""
         await setup_strategy_with_positions(
             symbol="AAPL",
-            month="JAN26",
+            month="15JAN26",
             positions=[(100002, 1)],
         )
 
@@ -234,7 +234,7 @@ class TestModifyingPositions:
         """Modifying one position does not change the total number of positions."""
         await setup_strategy_with_positions(
             symbol="AAPL",
-            month="JAN26",
+            month="15JAN26",
             positions=[(100002, 1), (200002, -1)],
         )
 
@@ -261,7 +261,7 @@ class TestDeletingPositions:
         """Deleting the only position shows the empty-positions state."""
         await setup_strategy_with_positions(
             symbol="AAPL",
-            month="JAN26",
+            month="15JAN26",
             positions=[(100002, 1)],
         )
 
@@ -280,7 +280,7 @@ class TestDeletingPositions:
         """Deleting one position from a multi-position strategy leaves the rest."""
         await setup_strategy_with_positions(
             symbol="AAPL",
-            month="JAN26",
+            month="15JAN26",
             positions=[(100002, 2), (200002, -1)],
         )
 
@@ -301,7 +301,7 @@ class TestDeletingPositions:
         """Deleting the call position leaves only the put in the table."""
         await setup_strategy_with_positions(
             symbol="AAPL",
-            month="JAN26",
+            month="15JAN26",
             positions=[(100002, 2), (200002, -1)],
         )
 
@@ -321,7 +321,7 @@ class TestDeletingPositions:
         """Deleting all positions one by one results in the empty state."""
         await setup_strategy_with_positions(
             symbol="AAPL",
-            month="JAN26",
+            month="15JAN26",
             positions=[(100002, 1), (200002, -1)],
         )
 
@@ -346,7 +346,7 @@ class TestResetAllPositions:
         """Reset all removes every position and shows the empty state."""
         await setup_strategy_with_positions(
             symbol="AAPL",
-            month="JAN26",
+            month="15JAN26",
             positions=[(100001, 1), (100002, -2), (200002, 1)],
         )
 
@@ -366,7 +366,7 @@ class TestResetAllPositions:
         """Reset all also resets the stock quantity display to hidden."""
         await setup_strategy_with_positions(
             symbol="AAPL",
-            month="JAN26",
+            month="15JAN26",
             positions=[(100002, 1)],
             stock_quantity=100,
         )
@@ -388,7 +388,7 @@ class TestResetAllPositions:
         """Reset all works correctly even with just one position."""
         await setup_strategy_with_positions(
             symbol="AAPL",
-            month="JAN26",
+            month="15JAN26",
             positions=[(100002, 1)],
         )
 
@@ -410,7 +410,7 @@ class TestStockQuantity:
         """Setting a positive stock quantity shows the quantity display."""
         await setup_strategy_with_positions(
             symbol="AAPL",
-            month="JAN26",
+            month="15JAN26",
             positions=[(100002, 1)],
             stock_quantity=100,
         )
@@ -427,7 +427,7 @@ class TestStockQuantity:
         """Setting a negative stock quantity (short shares) is reflected in the display."""
         await setup_strategy_with_positions(
             symbol="AAPL",
-            month="JAN26",
+            month="15JAN26",
             positions=[(100002, 1)],
             stock_quantity=-50,
         )
@@ -452,7 +452,7 @@ class TestStockQuantity:
         """Updating the stock quantity changes the displayed value."""
         await setup_strategy_with_positions(
             symbol="AAPL",
-            month="JAN26",
+            month="15JAN26",
             positions=[(100002, 1)],
             stock_quantity=100,
         )

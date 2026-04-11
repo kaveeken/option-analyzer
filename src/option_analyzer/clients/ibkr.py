@@ -3,8 +3,26 @@
 import asyncio
 import logging
 import types
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Literal
+
+_MONTH_ABBR = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+               "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+
+
+def _format_expiration(d: date) -> str:
+    """Format a date as DDMMMYY (e.g. '16MAY26')."""
+    return f"{d.day:02d}{_MONTH_ABBR[d.month - 1]}{str(d.year)[2:]}"
+
+
+def _to_month_code(expiration: str) -> str:
+    """Convert DDMMMYY (e.g. '16MAY26') to IBKR month code (e.g. 'MAY26').
+
+    If the string is already a month code (starts with a letter), returns it unchanged.
+    """
+    if len(expiration) == 7 and expiration[:2].isdigit():
+        return expiration[2:]
+    return expiration
 
 import httpx
 
@@ -261,17 +279,49 @@ class IBKRClient:
                     f"No price data available for '{symbol}' — market data may be unavailable"
                 )
 
+        # Resolve each IBKR month code (e.g. "MAY26") to a full DDMMMYY date
+        # (e.g. "16MAY26") by fetching one contract per month.  Results are
+        # cached so subsequent loads are fast.
+        resolved: list[str] = []
+        for month in months:
+            date_str = await self._resolve_expiration_date(conid, month)
+            resolved.append(date_str if date_str else month)
+
         return Stock(
             symbol=symbol,
             current_price=current_price,
             conid=conid,
-            available_expirations=months,
+            available_expirations=resolved,
             iv_30d=snap.get("iv_30d"),
             hist_vol=snap.get("hist_vol"),
             iv_hv_ratio=snap.get("iv_hv_ratio"),
             dividends_forward=snap.get("dividends_forward"),
             dividends_ttm=snap.get("dividends_ttm"),
         )
+
+    async def _resolve_expiration_date(self, conid: int, month: str) -> str | None:
+        """Resolve an IBKR month code to a DDMMMYY expiration string.
+
+        Fetches one contract for the month to obtain the precise maturity date.
+        Returns None if the date cannot be determined.
+        """
+        try:
+            strikes = await self.get_option_strikes(conid, month, timedelta(minutes=15))
+            call_strikes = strikes.get("call", [])
+            put_strikes = strikes.get("put", [])
+            if call_strikes:
+                strike, right = call_strikes[len(call_strikes) // 2], "C"
+            elif put_strikes:
+                strike, right = put_strikes[len(put_strikes) // 2], "P"
+            else:
+                return None
+            contract = await self.get_unpriced_option_contract(
+                conid, month, right, strike, timedelta(minutes=15)
+            )
+            return _format_expiration(contract.expiration)
+        except Exception:
+            logger.warning("Could not resolve expiration date for month %s", month)
+            return None
 
     async def get_option_strikes(
             self,
@@ -394,8 +444,9 @@ class IBKRClient:
     async def get_option_chain(
             self,
             conid: int,
-            month: str
+            expiration: str
             ) -> OptionChain:
+        month = _to_month_code(expiration)
         chain = await self.get_unpriced_option_chain(conid, month)
         await self.price_option_chain(chain)
         return chain

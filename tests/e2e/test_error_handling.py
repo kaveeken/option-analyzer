@@ -205,7 +205,7 @@ class TestNetworkErrors:
         await page.wait_for_selector("#stock-info:not(.hidden)", timeout=10000)
 
         # Load option chain
-        await page.select_option("#month-selector", "JAN26")
+        await page.select_option("#month-selector", "15JAN26")
         await page.click("#month-load")
 
         await expect(page.locator("#error-banner")).not_to_have_class(re.compile(r"hidden"), timeout=5000)
@@ -237,7 +237,7 @@ class TestSessionExpiration:
         await page.wait_for_selector("#stock-info:not(.hidden)", timeout=10000)
 
         # Load option chain
-        await page.select_option("#month-selector", "JAN26")
+        await page.select_option("#month-selector", "15JAN26")
         await page.click("#month-load")
         await page.wait_for_selector("#option-chain-section:not(.hidden)", timeout=10000)
 
@@ -265,7 +265,7 @@ class TestSessionExpiration:
         await _enter_symbol(page, "AAPL")
         await page.wait_for_selector("#stock-info:not(.hidden)", timeout=10000)
 
-        await page.select_option("#month-selector", "JAN26")
+        await page.select_option("#month-selector", "15JAN26")
         await page.click("#month-load")
         await page.wait_for_selector("#option-chain-section:not(.hidden)", timeout=10000)
 

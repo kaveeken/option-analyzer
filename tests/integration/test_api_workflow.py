@@ -36,7 +36,7 @@ def mock_ibkr_client():
     client.add_stock("AAPL", make_stock(
         symbol="AAPL",
         current_price=150.25,
-        available_expirations=["JAN26", "FEB26"],
+        available_expirations=["15JAN26", "15FEB26"],
     ))
 
     # Simple chain with one strike for fast tests
@@ -86,7 +86,7 @@ class TestFullStrategyWorkflow:
         assert init_response.status_code == 200
         init_data = init_response.json()
         assert init_data["symbol"] == "AAPL"
-        assert init_data["target_date"] == "JAN26"
+        assert init_data["target_date"] == "15JAN26"
         session_id = init_data["session_id"]
 
         # Verify session cookie was set
@@ -94,7 +94,7 @@ class TestFullStrategyWorkflow:
         cookies = {"session_id": session_id}
 
         # Step 2: Get option chain for target date
-        chain_response = test_client.get("/api/stocks/AAPL/chains?month=JAN26")
+        chain_response = test_client.get("/api/stocks/AAPL/chains?month=15JAN26")
         assert chain_response.status_code == 200
         chain_data = chain_response.json()
         assert len(chain_data["calls"]) > 0
@@ -218,7 +218,7 @@ class TestFullStrategyWorkflow:
         summary = summary_response.json()
         assert summary["symbol"] == "AAPL"
         assert summary["current_price"] == 150.25
-        assert summary["target_date"] == "JAN26"
+        assert summary["target_date"] == "15JAN26"
         assert len(summary["positions"]) == 0
 
         # Step 3: Add a position
@@ -262,24 +262,24 @@ class TestFullStrategyWorkflow:
             symbol="AAPL",
             current_price=150.25,
             conid=265598,
-            available_expirations=["JAN26", "FEB26", "MAR26"],
+            available_expirations=["15JAN26", "15FEB26", "15MAR26"],
         )
         mock_ibkr_client.add_stock("AAPL", mock_stock)
 
         init_response = test_client.post("/api/strategy/init", json={"symbol": "AAPL"})
         assert init_response.status_code == 200
         session_id = init_response.json()["session_id"]
-        assert init_response.json()["target_date"] == "JAN26"
+        assert init_response.json()["target_date"] == "15JAN26"
         cookies = {"session_id": session_id}
 
-        # Step 2: Update target date to FEB26 (no positions yet)
+        # Step 2: Update target date to 15FEB26 (no positions yet)
         update_response = test_client.patch(
             "/api/strategy/target-date",
-            json={"target_date": "FEB26"},
+            json={"target_date": "15FEB26"},
             cookies=cookies,
         )
         assert update_response.status_code == 200
-        assert update_response.json()["target_date"] == "FEB26"
+        assert update_response.json()["target_date"] == "15FEB26"
 
         # Step 3: Add a position for FEB26
         mock_call = OptionContract(
@@ -308,7 +308,7 @@ class TestFullStrategyWorkflow:
         # Step 4: Try to update target date (should fail - positions exist)
         update_response2 = test_client.patch(
             "/api/strategy/target-date",
-            json={"target_date": "MAR26"},
+            json={"target_date": "15MAR26"},
             cookies=cookies,
         )
         assert update_response2.status_code == 400
@@ -324,11 +324,11 @@ class TestFullStrategyWorkflow:
         # Step 6: Now update target date should work
         update_response3 = test_client.patch(
             "/api/strategy/target-date",
-            json={"target_date": "MAR26"},
+            json={"target_date": "15MAR26"},
             cookies=cookies,
         )
         assert update_response3.status_code == 200
-        assert update_response3.json()["target_date"] == "MAR26"
+        assert update_response3.json()["target_date"] == "15MAR26"
 
 
 class TestSessionPersistence:

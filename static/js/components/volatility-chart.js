@@ -94,23 +94,18 @@ class VolatilityChart {
     }
 
     /**
-     * Approximate days until standard options expiry (3rd Friday) for a month code.
-     * @param {string} targetDate - e.g. "JAN26"
+     * Days until expiry from a DDMMMYY date string (e.g. "16MAY26").
+     * @param {string} targetDate - e.g. "16MAY26"
      * @returns {number} Calendar days from today to expiry (minimum 2)
      */
     _daysToExpiry(targetDate) {
-        if (!targetDate || targetDate.length < 5) return 30;
+        if (!targetDate || targetDate.length < 7) return 30;
         const MONTHS = { JAN:0, FEB:1, MAR:2, APR:3, MAY:4, JUN:5, JUL:6, AUG:7, SEP:8, OCT:9, NOV:10, DEC:11 };
-        const mo = MONTHS[targetDate.slice(0, 3).toUpperCase()];
-        const yr = 2000 + parseInt(targetDate.slice(3));
-        if (mo === undefined || isNaN(yr)) return 30;
-
-        // 3rd Friday of the month
-        const firstDay = new Date(yr, mo, 1);
-        const dow = firstDay.getDay(); // 0=Sun, 5=Fri
-        const firstFriday = 1 + ((5 - dow + 7) % 7);
-        const expDate = new Date(yr, mo, firstFriday + 14);
-
+        const day = parseInt(targetDate.slice(0, 2));
+        const mo = MONTHS[targetDate.slice(2, 5).toUpperCase()];
+        const yr = 2000 + parseInt(targetDate.slice(5));
+        if (isNaN(day) || mo === undefined || isNaN(yr)) return 30;
+        const expDate = new Date(yr, mo, day);
         const today = new Date();
         const days = Math.round((expDate - today) / (1000 * 60 * 60 * 24));
         return Math.max(2, days);
