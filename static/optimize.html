@@ -160,6 +160,18 @@
         .metric-label { font-size: var(--font-size-xs); color: var(--color-text-muted); margin-bottom: 2px; }
         .metric-value { font-family: var(--font-family-mono); font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); }
 
+        .panel-legs {
+            padding: var(--space-sm) var(--space-md);
+            border-bottom: var(--border-width) solid var(--color-border);
+            background: var(--color-bg-secondary);
+        }
+        .leg-row {
+            font-family: var(--font-family-mono);
+            font-size: var(--font-size-xs);
+            color: var(--color-text);
+            padding: 2px 0;
+        }
+
         .panel-chart { padding: var(--space-md); min-height: 200px; display: flex; align-items: center; justify-content: center; }
         .panel-chart img { width: 100%; height: auto; border-radius: var(--border-radius-md); }
         .chart-loading { color: var(--color-text-muted); font-size: var(--font-size-sm); }
@@ -264,6 +276,7 @@
                     <span class="panel-title" id="panel-title">—</span>
                     <button class="btn-close" id="panel-close" title="Close">×</button>
                 </div>
+                <div id="panel-legs"></div>
                 <div class="panel-metrics" id="panel-metrics"></div>
                 <div class="panel-chart" id="panel-chart">
                     <span class="chart-loading">Select a row to view chart.</span>
@@ -297,6 +310,7 @@
     const errorBanner    = document.getElementById('error-banner');
     const panelCol       = document.getElementById('panel-col');
     const panelTitle     = document.getElementById('panel-title');
+    const panelLegs      = document.getElementById('panel-legs');
     const panelMetrics   = document.getElementById('panel-metrics');
     const panelChart     = document.getElementById('panel-chart');
     const panelClose     = document.getElementById('panel-close');
@@ -516,6 +530,13 @@
         const desc = tr ? tr.querySelector('.desc-cell')?.title || tr.querySelector('.desc-cell')?.textContent : `Strategy #${rank}`;
         panelTitle.textContent = desc;
 
+        // Legs from stored row data
+        const rd = rowData[rank] || {};
+        const legs = rd.legs || [];
+        panelLegs.innerHTML = legs.length > 0
+            ? legs.map(l => `<div class="leg-row">${l}</div>`).join('')
+            : '';
+
         // Metrics from row cells
         const cells = tr ? tr.querySelectorAll('td') : [];
         // cells: 0=#, 1=desc, 2=ev/risk, 3=ev, 4=pop, 5=maxloss, 6=maxgain, 7=prem, 8=load
@@ -557,6 +578,7 @@
     function closePanel() {
         panelCol.classList.remove('open');
         tbody.querySelectorAll('tr').forEach(tr => tr.classList.remove('selected'));
+        panelLegs.innerHTML = '';
         selectedRank = null;
     }
     panelClose.addEventListener('click', closePanel);
