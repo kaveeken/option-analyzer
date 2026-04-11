@@ -37,3 +37,17 @@ jobs:
 
       - name: Run unit tests
         run: uv run pytest tests/unit/ -v --cov=src/option_analyzer --cov-report=term-missing -m "not integration and not e2e"
+
+  deploy:
+    name: Deploy
+    runs-on: [self-hosted, rasp]
+    needs: [lint, test]
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sync dependencies
+        run: cd /home/pi/proj/option-analyzer && uv sync
+      - name: Restart service
+        run: systemctl --user restart option-analyzer-app
+      - name: Verify running
+        run: systemctl --user is-active option-analyzer-app
