@@ -13,9 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: astral-sh/setup-uv@v3
-        with:
-          enable-cache: true
+      - uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
         run: uv sync --extra dev
@@ -29,9 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: astral-sh/setup-uv@v3
-        with:
-          enable-cache: true
+      - uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
         run: uv sync --extra dev
