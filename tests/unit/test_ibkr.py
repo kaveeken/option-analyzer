@@ -394,6 +394,10 @@ class TestGetStock:
 
         client.get_search_results = AsyncMock(return_value=mock_search)
         client.get_market_snapshot = AsyncMock(return_value=mock_snapshot)
+        # Resolve each month code to a single DDMMMYY date (simplified for tests)
+        async def _resolve(conid, month):
+            return [f"15{month}"]
+        client._resolve_expiration_dates = _resolve
 
         stock = await client.get_stock("AAPL")
 
@@ -401,7 +405,7 @@ class TestGetStock:
         assert stock.symbol == "AAPL"
         assert stock.current_price == 150.25
         assert stock.conid == 265598
-        assert stock.available_expirations == ["DEC24", "JAN25", "FEB25"]
+        assert stock.available_expirations == ["15DEC24", "15JAN25", "15FEB25"]
 
     @pytest.mark.asyncio
     async def test_get_stock_uses_5min_cache_for_snapshot(
@@ -419,6 +423,9 @@ class TestGetStock:
 
         client.get_search_results = AsyncMock(return_value=mock_search)
         client.get_market_snapshot = AsyncMock(return_value=mock_snapshot)
+        async def _resolve(conid, month):
+            return [f"15{month}"]
+        client._resolve_expiration_dates = _resolve
 
         await client.get_stock("AAPL")
 
@@ -482,11 +489,14 @@ class TestGetStock:
 
         client.get_search_results = AsyncMock(return_value=mock_search)
         client.get_market_snapshot = AsyncMock(return_value=mock_snapshot)
+        async def _resolve(conid, month):
+            return [f"15{month}"]
+        client._resolve_expiration_dates = _resolve
 
         stock = await client.get_stock("AAPL")
 
         # Last OPT section's months (implementation overwrites in loop)
-        assert stock.available_expirations == ["FEB25", "MAR25"]
+        assert stock.available_expirations == ["15FEB25", "15MAR25"]
 
     @pytest.mark.asyncio
     async def test_get_stock_conid_as_string_in_response(
@@ -1067,7 +1077,7 @@ class TestGetOptionChain:
         chain = await client.get_option_chain(265598, "JAN25")
 
         # Verify both methods were called
-        client.get_unpriced_option_chain.assert_called_once_with(265598, "JAN25")
+        client.get_unpriced_option_chain.assert_called_once_with(265598, "JAN25", target_date=None)
         client.price_option_chain.assert_called_once_with(mock_unpriced_chain)
 
         # Verify chain is returned

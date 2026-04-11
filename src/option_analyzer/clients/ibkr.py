@@ -24,6 +24,23 @@ def _to_month_code(expiration: str) -> str:
         return expiration[2:]
     return expiration
 
+
+def _parse_expiration(s: str) -> date | None:
+    """Parse a DDMMMYY string (e.g. '16MAY26') to a date object.
+
+    Returns None if the string is not in DDMMMYY format.
+    """
+    if len(s) == 7 and s[:2].isdigit():
+        try:
+            day = int(s[:2])
+            month_num = _MONTH_ABBR.index(s[2:5].upper()) + 1
+            year = 2000 + int(s[5:])
+            return date(year, month_num, day)
+        except (ValueError, IndexError):
+            return None
+    return None
+
+
 import httpx
 
 
@@ -279,13 +296,13 @@ class IBKRClient:
                     f"No price data available for '{symbol}' — market data may be unavailable"
                 )
 
-        # Resolve each IBKR month code (e.g. "MAY26") to a full DDMMMYY date
-        # (e.g. "16MAY26") by fetching one contract per month.  Results are
-        # cached so subsequent loads are fast.
+        # Resolve each IBKR month code (e.g. "MAY26") to one or more DDMMMYY
+        # dates (e.g. "16MAY26").  Monthly options yield one date; months with
+        # weekly series yield multiple.  Results are cached so subsequent loads
+        # are fast.
         resolved: list[str] = []
         for month in months:
-            date_str = await self._resolve_expiration_date(conid, month)
-            resolved.append(date_str if date_str else month)
+            resolved.extend(await self._resolve_expiration_dates(conid, month))
 
         return Stock(
             symbol=symbol,
@@ -299,11 +316,15 @@ class IBKRClient:
             dividends_ttm=snap.get("dividends_ttm"),
         )
 
-    async def _resolve_expiration_date(self, conid: int, month: str) -> str | None:
-        """Resolve an IBKR month code to a DDMMMYY expiration string.
+    async def _resolve_expiration_dates(self, conid: int, month: str) -> list[str]:
+        """Resolve an IBKR month code to all DDMMMYY expiration strings in that month.
 
-        Fetches one contract for the month to obtain the precise maturity date.
-        Returns None if the date cannot be determined.
+        A single month code can contain multiple weekly expirations.  The
+        secdef/info endpoint returns one entry per expiration week, so we parse
+        all unique maturityDate values from the response.
+
+        Returns a list of DDMMMYY strings sorted ascending.  Falls back to
+        [month] on any error so the caller always gets at least one entry.
         """
         try:
             strikes = await self.get_option_strikes(conid, month, timedelta(minutes=15))
@@ -314,14 +335,36 @@ class IBKRClient:
             elif put_strikes:
                 strike, right = put_strikes[len(put_strikes) // 2], "P"
             else:
-                return None
-            contract = await self.get_unpriced_option_contract(
-                conid, month, right, strike, timedelta(minutes=15)
+                return [month]
+
+            # Fetch the raw secdef/info response so we can see all expirations.
+            endpoint = (
+                f"iserver/secdef/info?conid={conid}&secType=OPT&month={month}"
+                f"&strike={strike}&right={right}"
             )
-            return _format_expiration(contract.expiration)
+            response = self._cache.get(endpoint)
+            if response is None:
+                response = await self.get_request(endpoint)
+                self._cache.set(endpoint, response, timedelta(minutes=15))
+
+            if not isinstance(response, list) or not response:
+                return [month]
+
+            seen: set[str] = set()
+            dates: list[date] = []
+            for entry in response:
+                mat = entry.get("maturityDate")
+                if mat and mat not in seen:
+                    seen.add(mat)
+                    dates.append(datetime.strptime(mat, "%Y%m%d").date())
+
+            if not dates:
+                return [month]
+
+            return [_format_expiration(d) for d in sorted(dates)]
         except Exception:
-            logger.warning("Could not resolve expiration date for month %s", month)
-            return None
+            logger.warning("Could not resolve expiration dates for month %s", month)
+            return [month]
 
     async def get_option_strikes(
             self,
@@ -345,43 +388,76 @@ class IBKRClient:
             month: str,
             right: Literal["C", "P"],
             strike: float,
-            ttl: timedelta | None
-            ) -> OptionContract:
-        endpoint =\
-            f"iserver/secdef/info?conid={underlying_conid}&secType=OPT&month={month}" +\
+            ttl: timedelta | None,
+            *,
+            target_date: date | None = None,
+            ) -> OptionContract | None:
+        """Fetch an unpriced option contract from the IBKR secdef/info endpoint.
+
+        When *target_date* is given, only the entry whose maturityDate matches
+        that date is returned.  If no matching entry is found, returns None
+        (the strike does not exist for that specific weekly expiration).
+        When *target_date* is None the first entry is returned (existing
+        behaviour for standard monthly options).
+        """
+        endpoint = (
+            f"iserver/secdef/info?conid={underlying_conid}&secType=OPT&month={month}"
             f"&strike={strike}&right={right}"
-        response = self._cache.get(endpoint) # duplicate code
+        )
+        response = self._cache.get(endpoint)
         if response is None:
             response = await self.get_request(endpoint)
             self._cache.set(endpoint, response, ttl)
-        # @todo swf: there can be multiples of the same month: e.g. JAN26 (nearest month atp) has expirations every week
-        if not isinstance(response, list): # or len(response) != 1:
+        if not isinstance(response, list) or not response:
             logger.debug(response)
             raise IBKRAPIError("Invalid contract info response")
-        unpriced_contract =  OptionContract(
-            conid = int(response[0]["conid"]),
-            strike = strike,
+
+        if target_date is not None:
+            target_str = target_date.strftime("%Y%m%d")
+            entry = next(
+                (e for e in response if e.get("maturityDate") == target_str), None
+            )
+            if entry is None:
+                return None  # this strike doesn't exist on the requested weekly date
+        else:
+            entry = response[0]
+
+        return OptionContract(
+            conid=int(entry["conid"]),
+            strike=strike,
             right=right,
-            expiration = datetime.strptime(response[0]["maturityDate"], "%Y%m%d").date()) # maturityDate is YYYYMMDD
-        return unpriced_contract
+            expiration=datetime.strptime(entry["maturityDate"], "%Y%m%d").date(),
+        )
 
     async def get_unpriced_option_chain(
             self,
             conid: int,
             month: str,
+            *,
+            target_date: date | None = None,
             ) -> OptionChain:
         """
         Get the option chain for a given conid at a given month.
+
+        When *target_date* is supplied the chain is filtered to only contracts
+        with that exact maturity date, which is necessary for months that have
+        multiple weekly expirations.
         """
         strikes = await self.get_option_strikes(conid, month, timedelta(minutes=15))
         calls = {}
         puts = {}
         for strike in strikes["call"]:
-            contract = await self.get_unpriced_option_contract(conid, month, "C", strike, timedelta(minutes=15))
-            calls[contract.conid] = contract
+            contract = await self.get_unpriced_option_contract(
+                conid, month, "C", strike, timedelta(minutes=15), target_date=target_date
+            )
+            if contract is not None:
+                calls[contract.conid] = contract
         for strike in strikes["put"]:
-            contract = await self.get_unpriced_option_contract(conid, month, "P", strike, timedelta(minutes=15))
-            puts[contract.conid] = contract
+            contract = await self.get_unpriced_option_contract(
+                conid, month, "P", strike, timedelta(minutes=15), target_date=target_date
+            )
+            if contract is not None:
+                puts[contract.conid] = contract
         if len(calls) > 0:
             expiration = list(calls.values())[0].expiration
         elif len(puts) >0:
@@ -447,7 +523,8 @@ class IBKRClient:
             expiration: str
             ) -> OptionChain:
         month = _to_month_code(expiration)
-        chain = await self.get_unpriced_option_chain(conid, month)
+        target_date = _parse_expiration(expiration)
+        chain = await self.get_unpriced_option_chain(conid, month, target_date=target_date)
         await self.price_option_chain(chain)
         return chain
 
