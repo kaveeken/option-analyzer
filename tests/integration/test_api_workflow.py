@@ -20,11 +20,10 @@ from option_analyzer.api.dependencies import (
     get_plot_executor_dep,
     get_session_service_dep,
 )
-from option_analyzer.clients.ibkr import IBKRClient
 from option_analyzer.models.domain import OptionChain, OptionContract, Stock
 from option_analyzer.services.session import SessionService
-from tests.fixtures.ibkr_responses import make_stock, make_option_chain
 from tests.fixtures.fake_ibkr import FakeIBKRClient
+from tests.fixtures.ibkr_responses import make_option_chain, make_stock
 
 
 @pytest.fixture

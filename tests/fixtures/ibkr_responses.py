@@ -12,7 +12,6 @@ import numpy as np
 
 from option_analyzer.models.domain import OptionChain, OptionContract, Stock
 
-
 # ============================================================================
 # Stock Fixtures
 # ============================================================================

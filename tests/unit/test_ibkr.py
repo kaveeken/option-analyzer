@@ -1231,7 +1231,7 @@ class TestGetHistoricalData:
         client.get_request = AsyncMock(return_value=mock_response)
 
         # Call without years parameter (should default to 3)
-        result = await client.get_historical_data(265598)
+        await client.get_historical_data(265598)
 
         # Verify endpoint was called with period=3y
         client.get_request.assert_called_once()
@@ -1250,7 +1250,7 @@ class TestGetHistoricalData:
         client.get_request = AsyncMock(return_value=mock_response)
 
         # Call with invalid negative years
-        result = await client.get_historical_data(265598, years=-1)
+        await client.get_historical_data(265598, years=-1)
 
         # Should clamp to 3 years
         client.get_request.assert_called_once()
@@ -1268,7 +1268,7 @@ class TestGetHistoricalData:
         }
         client.get_request = AsyncMock(return_value=mock_response)
 
-        result = await client.get_historical_data(265598, years=0)
+        await client.get_historical_data(265598, years=0)
 
         # Should clamp to 3 years
         client.get_request.assert_called_once()
@@ -1286,7 +1286,7 @@ class TestGetHistoricalData:
         }
         client.get_request = AsyncMock(return_value=mock_response)
 
-        result = await client.get_historical_data(265598, years=5)
+        await client.get_historical_data(265598, years=5)
 
         # Should clamp to 3 years
         client.get_request.assert_called_once()

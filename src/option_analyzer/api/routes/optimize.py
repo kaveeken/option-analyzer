@@ -19,9 +19,14 @@ from fastapi.responses import StreamingResponse
 from ...clients.ibkr import IBKRClient
 from ...models.domain import OptionContract, OptionPosition, Stock, Strategy
 from ...models.session import SessionState
-from ...services.optimizer import StrategyResult, optimize_strategies
+from ...services.optimizer import optimize_strategies
 from ...services.session import SessionService
-from ...services.statistics import PriceBin, create_histogram, geometric_returns, get_price_distribution
+from ...services.statistics import (
+    PriceBin,
+    create_histogram,
+    geometric_returns,
+    get_price_distribution,
+)
 from ...utils.exceptions import ValidationError
 from ...utils.plotting import cleanup_plot, create_strategy_chart, run_plot_operation, save_plot
 from ..dependencies import (

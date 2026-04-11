@@ -10,10 +10,10 @@ import pytest
 from option_analyzer.utils.exceptions import IBKRAPIError, SymbolNotFoundError
 from tests.fixtures.fake_ibkr import (
     FakeIBKRClient,
-    make_fake_client_with_stock,
     make_fake_client_with_error,
+    make_fake_client_with_stock,
 )
-from tests.fixtures.ibkr_responses import make_stock, make_option_chain
+from tests.fixtures.ibkr_responses import make_option_chain, make_stock
 
 
 class TestFakeIBKRClientBasics:

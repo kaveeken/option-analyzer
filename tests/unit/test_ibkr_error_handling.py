@@ -713,8 +713,8 @@ class TestStockQuoteErrors:
             return_value=[{"conid": 265598}]
         )
 
-        # This will fail pydantic validation if 'last' is None
-        with pytest.raises(Exception):  # Pydantic validation error
+        # Raises IBKRAPIError when no price fields are available
+        with pytest.raises(IBKRAPIError):
             await client.get_stock("AAPL")
 
 

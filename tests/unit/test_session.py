@@ -94,9 +94,9 @@ class TestSessionService:
         service = SessionService(ttl_seconds=1)  # 1 second TTL
 
         # Create 3 sessions
-        session1 = service.create_session()
-        session2 = service.create_session()
-        session3 = service.create_session()
+        service.create_session()
+        service.create_session()
+        service.create_session()
 
         assert service.session_count() == 3
 
@@ -113,7 +113,7 @@ class TestSessionService:
         service = SessionService(ttl_seconds=2)  # 2 second TTL
 
         # Create first session
-        session1 = service.create_session()
+        service.create_session()
 
         # Wait 1 second
         time.sleep(1.1)

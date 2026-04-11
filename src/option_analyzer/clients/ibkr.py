@@ -6,6 +6,14 @@ import types
 from datetime import date, datetime, timedelta
 from typing import Any, Literal
 
+import httpx
+
+from option_analyzer.clients.cache import CacheInterface
+from option_analyzer.config import Settings
+from option_analyzer.models.domain import OptionChain, OptionContract, Stock
+from option_analyzer.utils.exceptions import IBKRAPIError, IBKRConnectionError, SymbolNotFoundError
+from option_analyzer.utils.rate_limiter import RateLimiter
+
 _MONTH_ABBR = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN",
                "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
 
@@ -41,9 +49,6 @@ def _parse_expiration(s: str) -> date | None:
     return None
 
 
-import httpx
-
-
 def _parse_float_field(value: Any) -> float | None:
     """
     Parse a float field from an IBKR market data snapshot.
@@ -66,12 +71,6 @@ def _parse_float_field(value: Any) -> float | None:
         except (ValueError, AttributeError):
             return None
     return None
-
-from option_analyzer.clients.cache import CacheInterface
-from option_analyzer.config import Settings
-from option_analyzer.models.domain import OptionChain, OptionContract, Stock
-from option_analyzer.utils.exceptions import IBKRAPIError, IBKRConnectionError, SymbolNotFoundError
-from option_analyzer.utils.rate_limiter import RateLimiter
 
 logger = logging.getLogger(__name__)
 

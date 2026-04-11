@@ -24,6 +24,8 @@ from option_analyzer.utils.exceptions import (
     InvalidQuantityError,
     MissingBidAskError,
     MixedExpirationError,
+)
+from option_analyzer.utils.exceptions import (
     ValidationError as AppValidationError,
 )
 

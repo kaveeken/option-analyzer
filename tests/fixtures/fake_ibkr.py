@@ -9,6 +9,13 @@ import types
 from datetime import date, timedelta
 from typing import Any
 
+from option_analyzer.models.domain import OptionChain, Stock
+from tests.fixtures.ibkr_responses import (
+    make_historical_data,
+    make_option_chain,
+    make_stock,
+)
+
 
 def _month_key(s: str) -> str:
     """Normalise expiration string to MMMYY for internal key storage/lookup.
@@ -18,15 +25,6 @@ def _month_key(s: str) -> str:
     if len(s) == 7 and s[:2].isdigit():
         return s[2:]
     return s
-
-from option_analyzer.models.domain import OptionChain, Stock
-from option_analyzer.utils.exceptions import IBKRAPIError, SymbolNotFoundError
-
-from tests.fixtures.ibkr_responses import (
-    make_stock,
-    make_option_chain,
-    make_historical_data,
-)
 
 
 class FakeIBKRClient:

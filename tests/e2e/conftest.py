@@ -2,28 +2,24 @@
 E2E test configuration with Playwright fixtures and mock IBKR client.
 """
 
-import asyncio
 import threading
 import time
+from collections.abc import AsyncGenerator
 from datetime import date, timedelta
-from typing import AsyncGenerator, Generator
-from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import uvicorn
 from playwright.async_api import Page, async_playwright
 
 from option_analyzer.api.app import create_app
-from option_analyzer.api.dependencies import get_ibkr_client, get_plot_executor_dep, get_session_service_dep
-from option_analyzer.clients.ibkr import IBKRClient
-from option_analyzer.models.domain import OptionChain, OptionContract, Stock
+from option_analyzer.api.dependencies import get_ibkr_client, get_session_service_dep
 from option_analyzer.services.session import SessionService
-from tests.fixtures.ibkr_responses import (
-    make_stock,
-    make_option_chain,
-    make_historical_data,
-)
 from tests.fixtures.fake_ibkr import FakeIBKRClient
+from tests.fixtures.ibkr_responses import (
+    make_historical_data,
+    make_option_chain,
+    make_stock,
+)
 
 
 @pytest.fixture
@@ -126,9 +122,9 @@ def test_server(mock_ibkr_client):
             import urllib.request
             urllib.request.urlopen("http://localhost:8080/health", timeout=1)
             break
-        except Exception:
+        except Exception as e:
             if i == max_retries - 1:
-                raise RuntimeError("Test server failed to start")
+                raise RuntimeError("Test server failed to start") from e
             time.sleep(0.5)
 
     yield

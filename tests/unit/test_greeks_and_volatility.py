@@ -10,7 +10,7 @@ Tests cover:
 - Position data stores and returns greeks
 """
 
-from datetime import date, timedelta
+from datetime import date
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -28,7 +28,6 @@ from option_analyzer.config import Settings
 from option_analyzer.models.domain import OptionChain, OptionContract, Stock
 from option_analyzer.services.session import SessionService
 from option_analyzer.utils.rate_limiter import RateLimiter
-
 
 # ============================================================================
 # Fixtures

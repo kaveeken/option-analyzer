@@ -17,8 +17,6 @@ from option_analyzer.models.domain import (
     Stock,
     Strategy,
 )
-from option_analyzer.services.risk import RiskMetrics
-from option_analyzer.services.statistics import PriceBin
 
 # These imports will fail until the optimizer is implemented (TDD)
 from option_analyzer.services.optimizer import (
@@ -26,7 +24,8 @@ from option_analyzer.services.optimizer import (
     describe_strategy,
     optimize_strategies,
 )
-
+from option_analyzer.services.risk import RiskMetrics
+from option_analyzer.services.statistics import PriceBin
 
 EXP_DATE = date(2026, 6, 19)
 STRIKES = [480.0, 490.0, 500.0, 510.0, 520.0]
