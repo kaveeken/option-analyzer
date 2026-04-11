@@ -5,12 +5,12 @@ After=network.target
 [Service]
 Type=simple
 User=pi
-Environment="PATH=/home/pi/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:"
+Environment="PATH=/home/pi/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 WorkingDirectory=/home/pi/proj/option-analyzer
-ExecStart=uv run python -m option_analyzer 
+ExecStart="/home/pi/proj/option-analyzer/.venv/bin/python -m option_analyzer"
+EnvironmentFile=/home/pi/proj/option-analyzer/.env
 Restart=on-failure
 RestartSec=5
 
 [Install]
 WantedBy=default.target
-SERVICE'
