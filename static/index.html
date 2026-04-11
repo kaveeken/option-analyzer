@@ -11,9 +11,12 @@
 </head>
 <body>
     <!-- Nav -->
-    <nav style="display:flex;justify-content:flex-end;gap:24px;padding:6px 24px;background:#fff;border-bottom:1px solid var(--color-border);font-size:var(--font-size-sm);">
-        <a href="/signals" style="color:var(--color-secondary);text-decoration:none;" onmouseover="this.style.color='var(--color-primary)'" onmouseout="this.style.color='var(--color-secondary)'">Volatility Signals →</a>
-        <a href="/optimize" id="optimize-nav-link" style="color:var(--color-secondary);text-decoration:none;" onmouseover="this.style.color='var(--color-primary)'" onmouseout="this.style.color='var(--color-secondary)'">Optimizer →</a>
+    <nav style="display:flex;justify-content:space-between;align-items:center;gap:24px;padding:6px 24px;background:#fff;border-bottom:1px solid var(--color-border);font-size:var(--font-size-sm);">
+        <span id="version-display" style="color:var(--color-secondary);font-family:monospace;">...</span>
+        <div style="display:flex;gap:24px;">
+            <a href="/signals" style="color:var(--color-secondary);text-decoration:none;" onmouseover="this.style.color='var(--color-primary)'" onmouseout="this.style.color='var(--color-secondary)'">Volatility Signals →</a>
+            <a href="/optimize" id="optimize-nav-link" style="color:var(--color-secondary);text-decoration:none;" onmouseover="this.style.color='var(--color-primary)'" onmouseout="this.style.color='var(--color-secondary)'">Optimizer →</a>
+        </div>
     </nav>
 
     <!-- Error Banner -->

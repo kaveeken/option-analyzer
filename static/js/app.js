@@ -18,5 +18,16 @@ document.addEventListener('DOMContentLoaded', () => {
     initPositionManager();
     initAnalysis();
 
+    // Fetch and display version info
+    fetch('/health')
+        .then(res => res.json())
+        .then(data => {
+            const el = document.getElementById('version-display');
+            if (el && data.commit) {
+                el.textContent = data.version + ' @ ' + data.commit;
+            }
+        })
+        .catch(err => console.error('Failed to fetch version:', err));
+
     console.log('Option Returns Analyzer - Ready');
 });

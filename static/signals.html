@@ -220,7 +220,10 @@
 <body>
     <div class="page-header">
         <h1>Volatility Signals</h1>
-        <a href="/" class="nav-link">← Option Analyzer</a>
+        <div style="display:flex;align-items:center;gap:16px;">
+            <span id="version-display" style="color:var(--color-secondary);font-family:monospace;font-size:var(--font-size-sm);">...</span>
+            <a href="/" class="nav-link">← Option Analyzer</a>
+        </div>
     </div>
 
     <div class="content">
@@ -457,6 +460,17 @@
 
         // ── Init ───────────────────────────────────────────────────────────
         load();
+
+        // Fetch and display version info
+        fetch('/health')
+            .then(res => res.json())
+            .then(data => {
+                const el = document.getElementById('version-display');
+                if (el && data.commit) {
+                    el.textContent = data.version + ' @ ' + data.commit;
+                }
+            })
+            .catch(err => console.error('Failed to fetch version:', err));
     })();
     </script>
 </body>

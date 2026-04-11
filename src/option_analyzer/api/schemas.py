@@ -33,10 +33,12 @@ class HealthCheckResponse(BaseModel):
     Attributes:
         status: Current service status
         version: API version
+        commit: Git commit hash
     """
 
     status: str = Field(description="Service status", examples=["healthy"])
     version: str = Field(description="API version", examples=["0.1.0"])
+    commit: str = Field(description="Git commit hash", examples=["abc12345"])
 
 
 class StockResponse(BaseModel):

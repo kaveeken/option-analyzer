@@ -193,6 +193,7 @@
 <div class="page-header">
     <h1>Strategy Optimizer</h1>
     <div class="nav-links">
+        <span id="version-display" style="color:var(--color-secondary);font-family:monospace;font-size:var(--font-size-sm);">...</span>
         <a href="/signals" class="nav-link">Volatility Signals</a>
         <a href="/" class="nav-link">← Option Analyzer</a>
     </div>
@@ -605,6 +606,17 @@
         symbolInput.value = qs.toUpperCase();
         lookupSymbol(qs.toUpperCase());
     }
+
+    // Fetch and display version info
+    fetch('/health')
+        .then(res => res.json())
+        .then(data => {
+            const el = document.getElementById('version-display');
+            if (el && data.commit) {
+                el.textContent = data.version + ' @ ' + data.commit;
+            }
+        })
+        .catch(err => console.error('Failed to fetch version:', err));
 })();
 </script>
 </body>
