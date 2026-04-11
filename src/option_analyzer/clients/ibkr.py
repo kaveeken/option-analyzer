@@ -220,7 +220,10 @@ class IBKRClient:
                 response = await self.get_request(endpoint)
                 if not isinstance(response, list) or len(response) == 0:
                     raise IBKRAPIError("Invalid marked data snapshot")
-            self._cache.set(endpoint, response, ttl)
+            # Only cache when we have at least some price data; caching an
+            # all-None response would lock out retries for the full TTL window.
+            if _response_has_all_prices(response):
+                self._cache.set(endpoint, response, ttl)
         if not isinstance(response, list) or len(response) == 0:
             raise IBKRAPIError("Invalid marked data snapshot")
         return [self._parse_market_snapshot(entry) for entry in response]
