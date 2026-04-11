@@ -44,8 +44,9 @@ jobs:
     needs: [lint, test]
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     steps:
-      - name: Pull latest code
-        run: cd /home/pi/proj/option-analyzer && git fetch origin && git reset --hard origin/master
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Sync dependencies
         run: cd /home/pi/proj/option-analyzer && uv sync
       - name: Restart service
