@@ -48,6 +48,6 @@ jobs:
       - name: Sync dependencies
         run: cd /home/pi/proj/option-analyzer && uv sync
       - name: Restart service
-        run: systemctl --user restart option-analyzer-app
+        run: su - pi -c "systemctl --user restart option-analyzer-app"
       - name: Verify running
-        run: systemctl --user is-active option-analyzer-app
+        run: su - pi -c "systemctl --user is-active option-analyzer-app"
