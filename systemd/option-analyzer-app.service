@@ -4,11 +4,12 @@ After=network.target
 
 [Service]
 Type=simple
-User=pi
 Environment="PATH=/home/pi/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 WorkingDirectory=/home/pi/proj/option-analyzer
-ExecStart="/home/pi/proj/option-analyzer/.venv/bin/python -m option_analyzer"
-EnvironmentFile=/home/pi/proj/option-analyzer/.env
+ExecStart=/home/pi/proj/option-analyzer/.venv/bin/python -m option_analyzer
+EnvironmentFile=-/home/pi/proj/option-analyzer/.env
+StandardOutput=append:/home/pi/proj/option-analyzer/app.log
+StandardError=append:/home/pi/proj/option-analyzer/app.log
 Restart=on-failure
 RestartSec=5
 

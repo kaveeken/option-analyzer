@@ -43,13 +43,14 @@ jobs:
     runs-on: [self-hosted, rasp]
     needs: [lint, test]
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    env:
+      XDG_RUNTIME_DIR: /run/user/1000
     steps:
-      - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pull latest
+        run: git -C /home/pi/proj/option-analyzer pull --ff-only
       - name: Sync dependencies
         run: cd /home/pi/proj/option-analyzer && uv sync
       - name: Restart service
-        run: sudo systemctl --machine=pi@.host --user restart option-analyzer-app
+        run: systemctl --user restart option-analyzer-app
       - name: Verify running
-        run: sudo systemctl --machine=pi@.host --user is-active option-analyzer-app
+        run: systemctl --user is-active option-analyzer-app
