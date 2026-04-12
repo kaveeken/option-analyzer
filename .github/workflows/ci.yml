@@ -45,6 +45,7 @@ jobs:
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     env:
       XDG_RUNTIME_DIR: /run/user/1000
+      GIT_SSH_COMMAND: /usr/bin/ssh -i /home/pi/.ssh/github_ed25519 -o IdentitiesOnly=yes -o IdentityAgent=none
     steps:
       - name: Pull latest
         run: git -C /home/pi/proj/option-analyzer pull --ff-only
