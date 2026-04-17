@@ -7,14 +7,14 @@ Wants=network-online.target
 Type=oneshot
 
 # Adjust these paths to match your installation
-WorkingDirectory=/var/home/kris/proj/option-analyzer
-ExecStart=/var/home/kris/proj/option-analyzer/.venv/bin/python \
-    /var/home/kris/proj/option-analyzer/scripts/collect_snapshots.py
-ExecStart=/var/home/kris/proj/option-analyzer/.venv/bin/python \
-    /var/home/kris/proj/option-analyzer/scripts/compute_signals.py
+WorkingDirectory=/home/pi/proj/option-analyzer
+ExecStart=/home/pi/proj/option-analyzer/.venv/bin/python \
+    /home/pi/proj/option-analyzer/scripts/collect_snapshots.py
+ExecStart=/home/pi/proj/option-analyzer/.venv/bin/python \
+    /home/pi/proj/option-analyzer/scripts/compute_signals.py
 
 # Load IBKR credentials and settings from .env
-EnvironmentFile=/var/home/kris/proj/option-analyzer/.env
+EnvironmentFile=/home/pi/proj/option-analyzer/.env
 
 # Output goes to journald — view with: journalctl -u option-analyzer-collect
 StandardOutput=journal

@@ -4,8 +4,12 @@ FastAPI middleware for error handling and request processing.
 Converts domain exceptions into appropriate HTTP responses.
 """
 
+import logging
+
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
+
+logger = logging.getLogger(__name__)
 
 from ..utils.exceptions import (
     AmbiguousSymbolError,
@@ -99,6 +103,7 @@ async def error_handler_middleware(request: Request, call_next):
             content=ErrorResponse(error=e.message, code=e.code).model_dump(),
         )
     except Exception:
+        logger.exception("Unhandled exception in request handler")
         # Unexpected errors - don't expose internals
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

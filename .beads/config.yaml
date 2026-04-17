@@ -63,3 +63,5 @@
 
 # Default sort order for bd ready command
 ready-sort: priority
+
+sync.remote: "git+ssh://git@github.com/kaveeken/option-analyzer.git"

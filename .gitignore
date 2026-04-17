@@ -80,3 +80,11 @@ data/conid_cache.json
 # Example/test files
 example_*.png
 generate_example_*.py
+
+# IBKR gateway client
+.clientportal/
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
