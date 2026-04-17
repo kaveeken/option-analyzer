@@ -9,8 +9,6 @@ import logging
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 
-logger = logging.getLogger(__name__)
-
 from ..utils.exceptions import (
     AmbiguousSymbolError,
     IBKRAPIError,
@@ -26,6 +24,8 @@ from ..utils.exceptions import (
     ValidationError,
 )
 from .schemas import ErrorResponse
+
+logger = logging.getLogger(__name__)
 
 
 async def error_handler_middleware(request: Request, call_next):

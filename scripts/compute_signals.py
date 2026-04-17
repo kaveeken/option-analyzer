@@ -197,7 +197,7 @@ async def fetch_api_closes(
             raise
         except Exception as e:
             logger.error(f"Could not reach IBKR portal: {e}")
-            raise SystemExit(1)
+            raise SystemExit(1) from None
 
         unknown = [s for s in symbols if s not in conid_cache]
         if unknown:

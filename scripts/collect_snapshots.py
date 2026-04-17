@@ -19,7 +19,7 @@ import json
 import logging
 import sqlite3
 import sys
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -75,7 +75,7 @@ async def check_auth(ibkr: IBKRClient) -> None:
         competing = status.get("competing", False)
     except Exception as e:
         logger.error(f"Could not reach IBKR portal: {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from None
 
     if competing:
         logger.warning("IBKR portal reports a competing session — data may be unreliable")
